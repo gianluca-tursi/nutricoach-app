@@ -1,0 +1,77 @@
+import { createClient } from '@supabase/supabase-js';
+
+// Controlla se le variabili d'ambiente sono configurate
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+// Crea un flag per verificare se Supabase è configurato
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+// Crea il client solo se le credenziali sono disponibili
+export const supabase = isSupabaseConfigured
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null as any;
+
+// Types
+export interface Profile {
+  id: string;
+  email: string;
+  full_name: string;
+  age: number;
+  gender: string;
+  height: number;
+  weight: number;
+  target_weight?: number;
+  timeframe_months?: number;
+  activity_level: string;
+  goal: string;
+  obstacles?: string[];
+  emotional_goals?: string[];
+  dietary_restrictions?: string[];
+  health_conditions?: string[];
+  daily_calories: number;
+  daily_proteins: number;
+  daily_carbs: number;
+  daily_fats: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Meal {
+  id: string;
+  user_id: string;
+  name: string;
+  meal_type: string;
+  calories: number;
+  proteins: number;
+  carbs: number;
+  fats: number;
+  consumed_at: string;
+  created_at?: string;
+}
+
+export interface DailyGoal {
+  id: string;
+  user_id: string;
+  date: string;
+  target_calories: number;
+  target_proteins: number;
+  target_carbs: number;
+  target_fats: number;
+  consumed_calories: number;
+  consumed_proteins: number;
+  consumed_carbs: number;
+  consumed_fats: number;
+  water_intake: number;
+  steps: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WeightLog {
+  id: string;
+  user_id: string;
+  weight: number;
+  logged_at: string;
+  created_at?: string;
+}
