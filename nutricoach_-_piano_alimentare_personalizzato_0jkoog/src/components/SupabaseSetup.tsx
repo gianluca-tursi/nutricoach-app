@@ -22,7 +22,7 @@ export function SupabaseSetup() {
           </div>
           <CardTitle className="text-2xl text-white">Configurazione Richiesta</CardTitle>
           <CardDescription className="text-gray-400">
-            NutriCoach richiede alcune configurazioni per funzionare correttamente
+            Lumari richiede alcune configurazioni per funzionare correttamente
           </CardDescription>
         </CardHeader>
         

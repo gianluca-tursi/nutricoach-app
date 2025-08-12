@@ -112,7 +112,7 @@ export function PWAInstallPrompt() {
     switch (deviceType) {
       case 'ios':
         return {
-          title: 'Aggiungi NutriCoach alla Home',
+          title: 'Aggiungi Lumari alla Home',
           steps: [
             'Tocca l\'icona Condividi (□↑)',
             'Scorri e tocca "Aggiungi alla Home"',
@@ -122,32 +122,32 @@ export function PWAInstallPrompt() {
         };
       case 'android':
         return {
-          title: 'Installa NutriCoach',
-          steps: [
-            'Tocca "Installa" qui sotto',
-            'Conferma l\'installazione',
-            'L\'app apparirà nella home'
-          ],
+                  title: 'Installa Lumari',
+        steps: [
+          'Tocca "Installa" qui sotto',
+          'Conferma l\'installazione',
+          'L\'app apparirà nella home'
+        ],
           icon: Smartphone
         };
       case 'desktop':
         return {
-          title: 'Installa NutriCoach',
-          steps: [
-            'Tocca "Installa" qui sotto',
-            'Conferma l\'installazione',
-            'L\'app apparirà nel menu Start'
-          ],
+                  title: 'Installa Lumari',
+        steps: [
+          'Tocca "Installa" qui sotto',
+          'Conferma l\'installazione',
+          'L\'app apparirà nel menu Start'
+        ],
           icon: Monitor
         };
       default:
         return {
-          title: 'Installa NutriCoach',
-          steps: [
-            'Usa il menu del browser',
-            'Cerca "Installa app" o "Aggiungi alla home"',
-            'Segui le istruzioni del browser'
-          ],
+                  title: 'Installa Lumari',
+        steps: [
+          'Usa il menu del browser',
+          'Cerca "Installa app" o "Aggiungi alla home"',
+          'Segui le istruzioni del browser'
+        ],
           icon: Download
         };
     }

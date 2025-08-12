@@ -42,7 +42,7 @@ export function Auth() {
           return;
         }
         await signUp(email, password);
-        toast.success('Account creato! Benvenuto in NutriCoach');
+        toast.success('Account creato! Benvenuto in Lumari');
         navigate('/onboarding');
       } else {
         await signIn(email, password);
@@ -90,7 +90,7 @@ export function Auth() {
           >
             <Sparkles className="h-16 w-16 text-white mx-auto mb-4 drop-shadow-[0_0_12px_rgba(255,255,255,0.4)]" />
           </motion.div>
-          <h1 className="text-4xl font-bold"><span className="bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">NutriCoach</span></h1>
+          <h1 className="text-4xl font-bold"><span className="bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">Lumari</span></h1>
           <p className="text-gray-400 mt-2">Il tuo assistente nutrizionale personale</p>
         </div>
 

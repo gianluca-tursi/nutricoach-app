@@ -58,7 +58,7 @@ export function Setup() {
               <Sparkles className="h-16 w-16 text-green-600 mx-auto mb-4" />
             </motion.div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-              Configurazione NutriCoach
+              Configurazione Lumari
             </h1>
             <p className="text-gray-600 mt-2">Configura Supabase per iniziare ad usare l'applicazione</p>
           </div>
@@ -68,7 +68,7 @@ export function Setup() {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Configurazione richiesta</AlertTitle>
             <AlertDescription>
-              Per utilizzare NutriCoach, devi configurare Supabase. Segui le istruzioni qui sotto.
+              Per utilizzare Lumari, devi configurare Supabase. Segui le istruzioni qui sotto.
             </AlertDescription>
           </Alert>
 
@@ -115,7 +115,7 @@ export function Setup() {
                           Clicca su "New Project" e inserisci:
                         </p>
                         <ul className="list-disc list-inside text-sm text-gray-600 mt-2 space-y-1">
-                          <li>Nome progetto: <code className="bg-gray-100 px-1 rounded">nutricoach</code></li>
+                          <li>Nome progetto: <code className="bg-gray-100 px-1 rounded">lumari</code></li>
                           <li>Password del database (salvala in un posto sicuro)</li>
                           <li>Regione: scegli quella più vicina a te</li>
                         </ul>
@@ -203,7 +203,7 @@ VITE_SUPABASE_ANON_KEY=eyJhbGc...`}
                     <CheckCircle2 className="h-4 w-4 text-green-600" />
                     <AlertTitle className="text-green-800">Tutto pronto!</AlertTitle>
                     <AlertDescription className="text-green-700">
-                      Una volta completati questi passaggi, ricarica la pagina e NutriCoach sarà pronto all'uso.
+                      Una volta completati questi passaggi, ricarica la pagina e Lumari sarà pronto all'uso.
                     </AlertDescription>
                   </Alert>
                 </CardContent>

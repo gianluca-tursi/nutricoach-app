@@ -52,7 +52,7 @@ export function Layout() {
               </motion.div>
               <h1 className="text-2xl font-bold">
                 <span className="bg-gradient-to-r from-green-400 via-blue-500 to-purple-600 bg-clip-text text-transparent">
-                  NutriCoach
+                  Lumari
                 </span>
               </h1>
             </Link>

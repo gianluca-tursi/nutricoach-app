@@ -415,7 +415,7 @@ export function Onboarding() {
         
         <h2 className="text-4xl font-bold">
           <span className="bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-            Con NutriCoach è più facile!
+                            Con Lumari è più facile!
           </span>
         </h2>
         
@@ -871,7 +871,7 @@ export function Onboarding() {
                 
                 <Button
                   onClick={() => {
-                    const message = encodeURIComponent("Ehilà! Sto usando questa app per il nutrimento, provala e dimmi che ne pensi...\n\nLink app: https://nutricoahc.netlify.app/");
+                    const message = encodeURIComponent("Ehilà! Sto usando questa app per il nutrimento, provala e dimmi che ne pensi...\n\nLink app: https://lumariai.netlify.app/");
                     const whatsappUrl = `https://wa.me/?text=${message}`;
                     window.open(whatsappUrl, '_blank');
                   }}

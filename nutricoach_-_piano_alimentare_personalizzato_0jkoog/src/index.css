@@ -81,6 +81,47 @@ body {
   }
 }
 
+/* Mobile optimizations */
+.mobile-optimized {
+  /* Riduce la complessità delle animazioni su mobile */
+  transition-duration: 250ms !important;
+  animation-duration: 250ms !important;
+}
+
+.low-end-mobile {
+  /* Ottimizzazioni per dispositivi a bassa performance */
+  transition-duration: 200ms !important;
+  animation-duration: 200ms !important;
+  will-change: auto !important;
+  transform-style: flat !important;
+  filter: none !important;
+}
+
+/* Disabilita animazioni complesse su dispositivi lenti */
+.low-end-mobile .animate-morph,
+.low-end-mobile .animate-pulse,
+.low-end-mobile .animate-bounce {
+  animation: none !important;
+}
+
+/* Ottimizza le transizioni su mobile */
+@media (max-width: 768px) {
+  .glass-dark {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  
+  /* Riduce la complessità dei gradienti su mobile */
+  .mesh-gradient {
+    background: linear-gradient(45deg, #000000, #1a1a1a);
+  }
+  
+  /* Ottimizza le animazioni di morphing */
+  .animate-morph {
+    animation-duration: 8s;
+  }
+}
+
 @keyframes slideIn {
   from {
     transform: translate3d(-100%, 0, 0);

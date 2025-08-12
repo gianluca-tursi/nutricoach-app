@@ -30,7 +30,7 @@ import { Link } from 'react-router-dom';
 const apps = [
   {
     id: 'nutrition',
-    name: 'Nutrition Coach',
+                name: 'Lumari',
     tagline: 'Il tuo personal trainer nutrizionale',
     description: 'Analizza foto del cibo, traccia i tuoi pasti e raggiungi i tuoi obiettivi di salute con l\'AI.',
     icon: Apple,
@@ -78,7 +78,7 @@ const testimonials = [
   {
     name: 'Marco Rossi',
     role: 'Imprenditore',
-    content: 'Nutrition Coach ha rivoluzionato il mio rapporto con il cibo. L\'analisi foto è incredibile!',
+                  content: 'Lumari ha rivoluzionato il mio rapporto con il cibo. L\'analisi foto è incredibile!',
     rating: 5
   },
   {
@@ -90,7 +90,7 @@ const testimonials = [
   {
     name: 'Giuseppe Verdi',
     role: 'Personal Trainer',
-    content: 'Uso Nutrition Coach con i miei clienti. È uno strumento professionale e intuitivo.',
+                  content: 'Uso Lumari con i miei clienti. È uno strumento professionale e intuitivo.',
     rating: 5
   }
 ];
@@ -402,7 +402,7 @@ export function Landing() {
               Pronto a <span className="bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent">trasformare</span> la tua vita?
             </h2>
             <p className="text-xl text-gray-300 mb-8">
-              Inizia oggi stesso con Nutrition Coach e scopri il potere dell'intelligenza artificiale 
+              Inizia oggi stesso con Lumari e scopri il potere dell'intelligenza artificiale 
               applicata al tuo benessere quotidiano.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
