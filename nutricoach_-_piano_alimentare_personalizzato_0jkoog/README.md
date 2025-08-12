@@ -451,3 +451,4 @@ Questo progetto è rilasciato sotto licenza MIT. Vedi il file [LICENSE](LICENSE)
 </div>
 # Deploy test - Tue Aug 12 18:57:57 CEST 2025
 # Deploy test lumariai - Tue Aug 12 18:59:16 CEST 2025
+# Fix build directory - Tue Aug 12 19:00:07 CEST 2025
