@@ -17,10 +17,12 @@ import {
   Activity,
   Award,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Archive
 } from 'lucide-react';
 import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import { it } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 import {
   LineChart,
   Line,
@@ -52,6 +54,7 @@ interface NutritionData {
 export function Progress() {
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
+  const navigate = useNavigate();
   const [weightHistory, setWeightHistory] = useState<WeightEntry[]>([]);
   const [nutritionHistory, setNutritionHistory] = useState<NutritionData[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('week');
@@ -496,6 +499,31 @@ export function Progress() {
               <p className="font-medium text-white">30 Giorni</p>
               <p className="text-sm text-gray-400">In arrivo...</p>
             </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Link Archivio Pasti */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8 }}
+        className="mt-6"
+      >
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-800/50 to-gray-900/50 backdrop-blur-xl border border-white/10 p-6">
+          <div className="text-center">
+            <h3 className="text-xl font-bold text-white mb-4">Vuoi vedere il tuo archivio pasti?</h3>
+            <p className="text-gray-400 mb-6">
+              Accedi alla cronologia completa dei tuoi pasti registrati
+            </p>
+            <Button
+              onClick={() => navigate('/history')}
+              className="bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90"
+              size="lg"
+            >
+              <Archive className="h-5 w-5 mr-2" />
+              Archivio Pasti
+            </Button>
           </div>
         </div>
       </motion.div>

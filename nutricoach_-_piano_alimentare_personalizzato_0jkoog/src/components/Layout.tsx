@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Home, Camera, TrendingUp, User, LogOut, Sparkles, Plus, CalendarDays } from 'lucide-react';
+import { Home, Camera, TrendingUp, User, LogOut, Sparkles, Plus, CalendarDays, BookOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,7 +22,7 @@ export function Layout() {
   const navItems = [
     { path: '/dashboard', icon: Home, label: 'Home', color: 'from-purple-500 to-pink-500' },
     { path: '/meals', icon: Camera, label: 'Traccia', color: 'from-green-500 to-teal-500' },
-    { path: '/history', icon: CalendarDays, label: 'Archivio', color: 'from-indigo-500 to-blue-500' },
+    { path: '/recipes', icon: BookOpen, label: 'Ricette', color: 'from-indigo-500 to-blue-500' },
     { path: '/progress', icon: TrendingUp, label: 'Progressi', color: 'from-blue-500 to-cyan-500' },
     { path: '/profile', icon: User, label: 'Profilo', color: 'from-orange-500 to-red-500' },
   ];

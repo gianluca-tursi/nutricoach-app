@@ -13,6 +13,7 @@ const MealTracker = lazy(() => import('@/pages/MealTracker').then(module => ({ d
 const Progress = lazy(() => import('@/pages/Progress').then(module => ({ default: module.Progress })).catch(() => ({ default: () => <div>Caricamento Progress...</div> })));
 const MealHistory = lazy(() => import('@/pages/MealHistory').then(module => ({ default: module.MealHistory })));
 const Profile = lazy(() => import('@/pages/Profile').then(module => ({ default: module.Profile })));
+const Recipes = lazy(() => import('@/pages/Recipes').then(module => ({ default: module.Recipes })));
 const Auth = lazy(() => import('@/pages/Auth').then(module => ({ default: module.Auth })));
 const Onboarding = lazy(() => import('@/pages/Onboarding').then(module => ({ default: module.Onboarding })));
 const Setup = lazy(() => import('@/pages/Setup').then(module => ({ default: module.Setup })));
@@ -134,6 +135,13 @@ function App() {
               <Suspense fallback={<PageLoading />}>
                 <OptimizedPageTransition>
                   <MealHistory />
+                </OptimizedPageTransition>
+              </Suspense>
+            } />
+            <Route path="/recipes" element={
+              <Suspense fallback={<PageLoading />}>
+                <OptimizedPageTransition>
+                  <Recipes />
                 </OptimizedPageTransition>
               </Suspense>
             } />

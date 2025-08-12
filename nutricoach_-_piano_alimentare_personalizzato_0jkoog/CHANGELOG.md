@@ -12,6 +12,10 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0
 - MobileOptimizer per ottimizzazioni specifiche mobile
 - Classi CSS ottimizzate per dispositivi a bassa performance
 - Configurazioni animazioni adattive per mobile
+- Nuova pagina Ricette con gestione completa
+- Tabella recipes nel database con RLS
+- Link "Archivio Pasti" nella pagina Progressi
+- Menu bottom aggiornato con "Ricette" invece di "Archivio"
 
 ### Changed
 - Nome app da "NutriCoach" a "Lumari"
@@ -20,6 +24,7 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0
 - Durate animazioni ridotte su mobile (200-250ms vs 300-400ms)
 - Disabilitazione animazioni complesse su dispositivi lenti
 - Riduzione complessità gradienti e backdrop-filter su mobile
+- Menu bottom: "Archivio" → "Ricette"
 
 ### Fixed
 - Deploy corretto su progetto lumariai.netlify.app
