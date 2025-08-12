@@ -47,7 +47,7 @@ export function Auth() {
       } else {
         await signIn(email, password);
         toast.success('Bentornato!');
-        navigate('/');
+        navigate('/dashboard');
       }
     } catch (error: any) {
       toast.error(error.message);

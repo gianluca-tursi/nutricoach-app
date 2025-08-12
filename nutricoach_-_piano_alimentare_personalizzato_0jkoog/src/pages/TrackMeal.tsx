@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Camera, Mic, Search, Plus } from 'lucide-react';
 import { format } from 'date-fns';
+import { useQuickFoods } from '@/hooks/useQuickFoods';
 
 const COMMON_FOODS = [
   { name: 'Pasta al pomodoro', calories: 350, proteins: 12, carbs: 65, fats: 5 },
@@ -27,6 +28,7 @@ const COMMON_FOODS = [
 export function TrackMeal() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { addQuickFood } = useQuickFoods();
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -81,26 +83,48 @@ export function TrackMeal() {
 
       // Aggiorna gli obiettivi giornalieri
       const today = format(new Date(), 'yyyy-MM-dd');
-      const { data: goalData } = await supabase
-        .from('daily_goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('date', today)
-        .single();
-
-      if (goalData) {
-        const { error: updateError } = await supabase
+      try {
+        const { data: goalData, error: goalError } = await supabase
           .from('daily_goals')
-          .update({
-            consumed_calories: goalData.consumed_calories + parseInt(mealData.calories),
-            consumed_proteins: goalData.consumed_proteins + parseFloat(mealData.proteins),
-            consumed_carbs: goalData.consumed_carbs + parseFloat(mealData.carbs),
-            consumed_fats: goalData.consumed_fats + parseFloat(mealData.fats),
-          })
-          .eq('id', goalData.id);
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .maybeSingle();
 
-        if (updateError) throw updateError;
+        if (goalError) {
+          console.warn('Error fetching daily goal:', goalError);
+        }
+
+        if (goalData) {
+          const { error: updateError } = await supabase
+            .from('daily_goals')
+            .update({
+              consumed_calories: goalData.consumed_calories + parseInt(mealData.calories),
+              consumed_proteins: goalData.consumed_proteins + parseFloat(mealData.proteins),
+              consumed_carbs: goalData.consumed_carbs + parseFloat(mealData.carbs),
+              consumed_fats: goalData.consumed_fats + parseFloat(mealData.fats),
+            })
+            .eq('id', goalData.id);
+
+          if (updateError) throw updateError;
+        } else {
+          // Se non esiste un daily goal, lo creiamo
+          console.log('No daily goal found for today, creating one...');
+          // Il daily goal verrà creato automaticamente dalla Dashboard quando l'utente tornerà
+        }
+      } catch (error) {
+        console.warn('Error with daily goals update:', error);
+        // Continua comunque con il salvataggio del pasto
       }
+
+      // Aggiungi agli alimenti rapidi se non esiste già
+      await addQuickFood({
+        name: mealData.name,
+        calories: parseInt(mealData.calories),
+        proteins: parseFloat(mealData.proteins),
+        carbs: parseFloat(mealData.carbs),
+        fats: parseFloat(mealData.fats),
+      });
 
       toast.success('Pasto registrato con successo!');
       navigate('/');

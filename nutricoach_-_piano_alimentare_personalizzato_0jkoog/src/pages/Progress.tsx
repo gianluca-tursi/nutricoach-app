@@ -84,42 +84,60 @@ export function Progress() {
           break;
       }
 
-      // Carica storico peso
-      const { data: weightData } = await supabase
-        .from('weight_logs')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('date', startDate.toISOString())
-        .lte('date', endDate.toISOString())
-        .order('date', { ascending: true });
+      // Carica storico peso con gestione errori
+      try {
+        const { data: weightData, error: weightError } = await supabase
+          .from('weight_logs')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('created_at', startDate.toISOString())
+          .lte('created_at', endDate.toISOString())
+          .order('created_at', { ascending: true });
 
-      if (weightData) {
-        setWeightHistory(weightData.map(w => ({
-          date: format(new Date(w.date), 'dd/MM'),
-          weight: w.weight
-        })));
+        if (weightError) {
+          console.warn('Error loading weight data:', weightError);
+          setWeightHistory([]);
+        } else if (weightData) {
+          setWeightHistory(weightData.map(w => ({
+            date: format(new Date(w.created_at), 'dd/MM'),
+            weight: w.weight
+          })));
+        }
+      } catch (weightError) {
+        console.warn('Error with weight logs query:', weightError);
+        setWeightHistory([]);
       }
 
-      // Carica storico nutrizione
-      const { data: goalsData } = await supabase
-        .from('daily_goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('date', startDate.toISOString())
-        .lte('date', endDate.toISOString())
-        .order('date', { ascending: true });
+      // Carica storico nutrizione con gestione errori
+      try {
+        const { data: goalsData, error: goalsError } = await supabase
+          .from('daily_goals')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('date', startDate.toISOString().split('T')[0])
+          .lte('date', endDate.toISOString().split('T')[0])
+          .order('date', { ascending: true });
 
-      if (goalsData) {
-        setNutritionHistory(goalsData.map(g => ({
-          date: format(new Date(g.date), 'dd/MM'),
-          calories: g.consumed_calories,
-          proteins: g.consumed_proteins,
-          carbs: g.consumed_carbs,
-          fats: g.consumed_fats
-        })));
+        if (goalsError) {
+          console.warn('Error loading nutrition data:', goalsError);
+          setNutritionHistory([]);
+        } else if (goalsData) {
+          setNutritionHistory(goalsData.map(g => ({
+            date: format(new Date(g.date), 'dd/MM'),
+            calories: g.consumed_calories,
+            proteins: g.consumed_proteins,
+            carbs: g.consumed_carbs,
+            fats: g.consumed_fats
+          })));
+        }
+      } catch (nutritionError) {
+        console.warn('Error with daily_goals query:', nutritionError);
+        setNutritionHistory([]);
       }
     } catch (error) {
       console.error('Error loading progress data:', error);
+      setWeightHistory([]);
+      setNutritionHistory([]);
     } finally {
       setLoading(false);
     }

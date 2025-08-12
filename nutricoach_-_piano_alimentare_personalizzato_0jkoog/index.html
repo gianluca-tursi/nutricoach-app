@@ -23,49 +23,29 @@
     <!-- Critical CSS inline -->
     <style>
       /* Critical CSS for initial render */
-      body {
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-        background-color: #000;
-        color: #fff;
-      }
-      
-      #root {
-        min-height: 100vh;
-      }
-      
-      /* Loading spinner */
-      .loading-spinner {
-        display: inline-block;
-        width: 20px;
-        height: 20px;
-        border: 3px solid rgba(255,255,255,.3);
-        border-radius: 50%;
-        border-top-color: #22c55e;
-        animation: spin 1s ease-in-out infinite;
-      }
-      
-      @keyframes spin {
-        to { transform: rotate(360deg); }
-      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; }
+      .loading-spinner { width: 40px; height: 40px; border: 4px solid #333; border-top: 4px solid #22c55e; border-radius: 50%; animation: spin 1s linear infinite; }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      #root { min-height: 100vh; }
     </style>
     
-    <!-- Service Worker registration -->
+    <!-- Service Worker registration - TEMPORARILY DISABLED -->
+    <!--
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
-            .then(registration => {
-              console.log('SW registered: ', registration);
+            .then((registration) => {
+              console.log('SW registered:', registration);
             })
-            .catch(registrationError => {
-              console.log('SW registration failed: ', registrationError);
+            .catch((registrationError) => {
+              console.log('SW registration failed:', registrationError);
             });
         });
       }
     </script>
+    -->
   </head>
   <body>
     <div id="root">

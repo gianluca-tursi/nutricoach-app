@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,22 +23,25 @@ import {
   Heart,
   LogOut,
   RefreshCw,
-  Save
+  Save,
+  Calculator
 } from 'lucide-react';
+import { NutritionCalculator, type UserProfile, type NutritionPlan } from '@/lib/nutritionCalculator';
+import { NutritionPlanCard } from '@/components/NutritionPlanCard';
 
 const ACTIVITY_LEVELS = [
   { value: 'sedentary', label: 'Sedentario', description: 'Poco o nessun esercizio' },
   { value: 'light', label: 'Leggermente attivo', description: '1-3 giorni a settimana' },
   { value: 'moderate', label: 'Moderatamente attivo', description: '3-5 giorni a settimana' },
   { value: 'active', label: 'Molto attivo', description: '6-7 giorni a settimana' },
-  { value: 'extra', label: 'Extra attivo', description: 'Atleta o lavoro fisico' },
+  { value: 'very_active', label: 'Estremamente attivo', description: 'Esercizio intenso + lavoro fisico' },
 ];
 
 const GOALS = [
-  { value: 'lose', label: 'Perdere peso' },
+  { value: 'lose_weight', label: 'Perdere peso' },
   { value: 'maintain', label: 'Mantenere il peso' },
-  { value: 'gain', label: 'Aumentare massa' },
-  { value: 'health', label: 'Migliorare la salute' },
+  { value: 'gain_weight', label: 'Aumentare massa' },
+  { value: 'build_muscle', label: 'Costruire muscoli' },
 ];
 
 export function Profile() {
@@ -47,15 +50,55 @@ export function Profile() {
   const { profile, updateProfile, deleteProfile, resetProfile } = useProfileStore();
   const [loading, setLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [nutritionPlan, setNutritionPlan] = useState<NutritionPlan | null>(null);
   
   const [formData, setFormData] = useState({
     full_name: profile?.full_name || '',
     age: profile?.age?.toString() || '',
     height: profile?.height?.toString() || '',
     weight: profile?.weight?.toString() || '',
+    target_weight: profile?.target_weight?.toString() || '',
+    timeframe_months: profile?.timeframe_months?.toString() || '',
     activity_level: profile?.activity_level || '',
     goal: profile?.goal || '',
+    training_frequency: profile?.training_frequency?.toString() || '0',
   });
+
+
+
+  // Calcola il piano nutrizionale quando il profilo cambia
+  useEffect(() => {
+    if (profile) {
+      const userProfile: UserProfile = {
+        age: profile.age,
+        gender: profile.gender as 'male' | 'female',
+        height: profile.height,
+        weight: profile.weight,
+        target_weight: profile.target_weight || undefined,
+        timeframe_months: profile.timeframe_months || undefined,
+        activity_level: profile.activity_level as any,
+        goal: (profile.goal_detailed || profile.goal) as any,
+        training_frequency: profile.training_frequency || 0,
+        dietary_preferences: profile.dietary_restrictions
+      };
+
+      const calculator = new NutritionCalculator(userProfile);
+      const plan = calculator.calculateNutritionPlan();
+      setNutritionPlan(plan);
+    }
+  }, [
+    profile?.age,
+    profile?.gender,
+    profile?.height,
+    profile?.weight,
+    profile?.target_weight,
+    profile?.timeframe_months,
+    profile?.activity_level,
+    profile?.goal_detailed,
+    profile?.goal,
+    profile?.training_frequency,
+    profile?.dietary_restrictions
+  ]);
 
   const handleUpdate = async () => {
     setLoading(true);
@@ -65,8 +108,11 @@ export function Profile() {
         age: parseInt(formData.age),
         height: parseFloat(formData.height),
         weight: parseFloat(formData.weight),
+        target_weight: formData.target_weight ? parseFloat(formData.target_weight) : null,
+        timeframe_months: formData.timeframe_months ? parseInt(formData.timeframe_months) : null,
         activity_level: formData.activity_level,
         goal: formData.goal,
+        training_frequency: parseInt(formData.training_frequency),
       });
       
       toast.success('Profilo aggiornato con successo!');
@@ -81,7 +127,7 @@ export function Profile() {
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate('/auth');
+      // Il logout ora naviga automaticamente a /auth
     } catch (error) {
       toast.error('Errore durante il logout');
     }
@@ -90,13 +136,8 @@ export function Profile() {
   const handleRetakeQuiz = async () => {
     try {
       if (user) {
-        // Elimina il profilo dal database
-        await deleteProfile(user.id);
-        
-        // Resetta lo stato del profilo
-        resetProfile();
-        
-        // Naviga all'onboarding
+        // Non eliminare il profilo, solo naviga all'onboarding
+        // Il profilo verrà precaricato nel quiz
         navigate('/onboarding');
       }
     } catch (error) {
@@ -130,9 +171,10 @@ export function Profile() {
       </motion.div>
 
       <Tabs defaultValue="info" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 bg-gray-800/50 border border-gray-600">
+        <TabsList className="grid w-full grid-cols-4 bg-gray-800/50 border border-gray-600">
           <TabsTrigger value="info" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-blue-500 data-[state=active]:text-white">Informazioni</TabsTrigger>
           <TabsTrigger value="goals" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-blue-500 data-[state=active]:text-white">Obiettivi</TabsTrigger>
+          <TabsTrigger value="plan" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-blue-500 data-[state=active]:text-white">Piano</TabsTrigger>
           <TabsTrigger value="settings" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-blue-500 data-[state=active]:text-white">Impostazioni</TabsTrigger>
         </TabsList>
 
@@ -166,8 +208,11 @@ export function Profile() {
                           age: profile.age.toString(),
                           height: profile.height.toString(),
                           weight: profile.weight.toString(),
+                          target_weight: profile.target_weight?.toString() || '',
+                          timeframe_months: profile.timeframe_months?.toString() || '',
                           activity_level: profile.activity_level,
                           goal: profile.goal,
+                          training_frequency: profile.training_frequency?.toString() || '0',
                         });
                       }}
                       className="bg-gray-800/50 border-gray-600 text-gray-300 hover:bg-gray-700/50"
@@ -272,6 +317,72 @@ export function Profile() {
                         />
                       ) : (
                         <span className="font-medium text-white">{profile.weight} kg</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="group">
+                    <Label htmlFor="target_weight" className="text-gray-300 mb-2 block">Peso Obiettivo</Label>
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-800/30 border border-gray-600/50 group-hover:border-gray-500 transition-colors">
+                      <Target className="h-5 w-5 text-green-400" />
+                      {editMode ? (
+                        <Input
+                          id="target_weight"
+                          type="number"
+                          step="0.1"
+                          value={formData.target_weight}
+                          onChange={(e) => setFormData({ ...formData, target_weight: e.target.value })}
+                          className="bg-transparent border-0 text-white placeholder-gray-400 focus:ring-0"
+                          placeholder="70"
+                        />
+                      ) : (
+                        <span className="font-medium text-white">
+                          {profile.target_weight ? `${profile.target_weight} kg` : 'Non impostato'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="group">
+                    <Label htmlFor="timeframe_months" className="text-gray-300 mb-2 block">Tempo Obiettivo (mesi)</Label>
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-800/30 border border-gray-600/50 group-hover:border-gray-500 transition-colors">
+                      <Calendar className="h-5 w-5 text-blue-400" />
+                      {editMode ? (
+                        <Input
+                          id="timeframe_months"
+                          type="number"
+                          value={formData.timeframe_months}
+                          onChange={(e) => setFormData({ ...formData, timeframe_months: e.target.value })}
+                          className="bg-transparent border-0 text-white placeholder-gray-400 focus:ring-0"
+                          placeholder="3"
+                        />
+                      ) : (
+                        <span className="font-medium text-white">
+                          {profile.timeframe_months ? `${profile.timeframe_months} mesi` : 'Non impostato'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="group">
+                    <Label htmlFor="training_frequency" className="text-gray-300 mb-2 block">Giorni Allenamento</Label>
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-800/30 border border-gray-600/50 group-hover:border-gray-500 transition-colors">
+                      <Activity className="h-5 w-5 text-purple-400" />
+                      {editMode ? (
+                        <Input
+                          id="training_frequency"
+                          type="number"
+                          min="0"
+                          max="7"
+                          value={formData.training_frequency}
+                          onChange={(e) => setFormData({ ...formData, training_frequency: e.target.value })}
+                          className="bg-transparent border-0 text-white placeholder-gray-400 focus:ring-0"
+                          placeholder="3"
+                        />
+                      ) : (
+                        <span className="font-medium text-white">
+                          {profile.training_frequency ? `${profile.training_frequency} giorni/settimana` : '0 giorni/settimana'}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -410,6 +521,24 @@ export function Profile() {
                     </Badge>
                   ))}
                 </div>
+              </div>
+            )}
+          </motion.div>
+        </TabsContent>
+
+        <TabsContent value="plan">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="space-y-6"
+          >
+            {nutritionPlan ? (
+              <NutritionPlanCard plan={nutritionPlan} />
+            ) : (
+              <div className="text-center py-12">
+                <Calculator className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-semibold text-white mb-2">Piano Nutrizionale</h3>
+                <p className="text-gray-400">Caricamento del piano personalizzato...</p>
               </div>
             )}
           </motion.div>

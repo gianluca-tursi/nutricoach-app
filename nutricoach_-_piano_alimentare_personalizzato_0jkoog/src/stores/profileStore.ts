@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, type Profile, isSupabaseConfigured } from '@/lib/supabase';
+import { supabase, type Profile, isSupabaseConfigured, checkSupabaseConnection, safeSupabaseOperation } from '@/lib/supabase';
 import { createLocalStorageCache, memoize } from '@/lib/performance';
 
 interface ProfileState {
@@ -19,18 +19,35 @@ const profileCache = createLocalStorageCache<Profile>('user_profile', 10 * 60 * 
 // Memoizzazione per evitare fetch multipli dello stesso profilo
 const memoizedFetchProfile = memoize(
   async (userId: string): Promise<Profile | null> => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching profile:', error);
-      throw error;
+    console.log('memoizedFetchProfile called with userId:', userId);
+    
+    // Validazione dell'ID
+    if (!userId || userId.trim() === '') {
+      console.warn('Invalid userId provided to fetchProfile:', userId);
+      return null;
     }
 
-    return data ?? null;
+    const result = await safeSupabaseOperation(async () => {
+      try {
+        const { data, error } = await supabase!
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (error) {
+          console.warn('Error fetching profile:', error);
+          return null;
+        }
+
+        return data ?? null;
+      } catch (error) {
+        console.warn('Error in profile fetch operation:', error);
+        return null;
+      }
+    });
+
+    return result;
   },
   (userId: string) => userId // Chiave di cache basata sull'ID utente
 );
@@ -40,18 +57,16 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   loading: false,
   
   fetchProfile: async (userId: string) => {
-    if (!isSupabaseConfigured) {
-      return;
-    }
-
-    // Evita di ricaricare se il profilo è già presente per lo stesso utente (anche null esplicito)
-    const currentProfile = get().profile;
-    if (currentProfile !== undefined && currentProfile !== null && (currentProfile as any).id === userId) {
+    console.log('fetchProfile called with userId:', userId);
+    
+    if (!checkSupabaseConnection()) {
+      console.warn('Fetch profile saltato - Supabase non configurato');
       return;
     }
 
     // Evita fetch multipli simultanei
     if (get().loading) {
+      console.log('Profile fetch already in progress, skipping');
       return;
     }
 
@@ -67,6 +82,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
       // Fetch dal database con memoization
       const profile = await memoizedFetchProfile(userId);
+      console.log('Profile fetch result:', profile);
       
       // Salva nel cache
       if (profile) {
@@ -77,15 +93,15 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       
       set({ profile, loading: false });
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.warn('Error fetching profile:', error);
       set({ profile: null, loading: false });
       profileCache.clear();
     }
   },
   
   updateProfile: async (updates: Partial<Profile>) => {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase non è configurato');
+    if (!checkSupabaseConnection()) {
+      throw new Error('Supabase non è configurato. Verifica le variabili d\'ambiente.');
     }
     
     const profile = get().profile;
@@ -93,90 +109,109 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       throw new Error('Nessun profilo da aggiornare');
     }
     
-    const { error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', profile.id);
+    const result = await safeSupabaseOperation(async () => {
+      const { error } = await supabase!
+        .from('profiles')
+        .update(updates)
+        .eq('id', profile.id);
+      
+      if (error) {
+        console.error('Error updating profile:', error);
+        throw error;
+      }
+      
+      return { ...profile, ...updates };
+    });
     
-    if (error) {
-      console.error('Error updating profile:', error);
-      throw error;
+    if (result) {
+      set({ profile: result });
+      
+      // Aggiorna il cache
+      profileCache.set(result);
+      
+      // Invalida la memoization per questo utente
+      memoizedFetchProfile.cache?.delete(profile.id);
     }
-    
-    const updatedProfile = { ...profile, ...updates };
-    set({ profile: updatedProfile });
-    
-    // Aggiorna il cache
-    profileCache.set(updatedProfile);
-    
-    // Invalida la memoization per questo utente
-    memoizedFetchProfile.cache?.delete(profile.id);
   },
   
   createProfile: async (profileData: Omit<Profile, 'created_at' | 'updated_at'>) => {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase non è configurato');
+    if (!checkSupabaseConnection()) {
+      throw new Error('Supabase non è configurato. Verifica le variabili d\'ambiente.');
     }
     
-    const { data, error } = await supabase
-      .from('profiles')
-      .insert([profileData])
-      .select()
-      .single();
+    const result = await safeSupabaseOperation(async () => {
+      const { data, error } = await supabase!
+        .from('profiles')
+        .insert([profileData])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Supabase error creating profile:', error);
+        throw error;
+      }
+      
+      return data;
+    });
     
-    if (error) {
-      console.error('Supabase error creating profile:', error);
-      throw error;
+    if (result) {
+      set({ profile: result });
+      
+      // Salva nel cache
+      profileCache.set(result);
+      
+      // Invalida la memoization per questo utente
+      memoizedFetchProfile.cache?.delete(profileData.id);
     }
-    
-    set({ profile: data });
-    
-    // Salva nel cache
-    profileCache.set(data);
-    
-    // Invalida la memoization per questo utente
-    memoizedFetchProfile.cache?.delete(profileData.id);
   },
   
   upsertProfile: async (profileData: Omit<Profile, 'created_at' | 'updated_at'>) => {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase non è configurato');
+    if (!checkSupabaseConnection()) {
+      throw new Error('Supabase non è configurato. Verifica le variabili d\'ambiente.');
     }
     
-    const { data, error } = await supabase
-      .from('profiles')
-      .upsert([profileData], { onConflict: 'id' })
-      .select()
-      .single();
+    const result = await safeSupabaseOperation(async () => {
+      const { data, error } = await supabase!
+        .from('profiles')
+        .upsert([profileData], { onConflict: 'id' })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Supabase error upserting profile:', error);
+        throw error;
+      }
+      
+      return data;
+    });
     
-    if (error) {
-      console.error('Supabase error upserting profile:', error);
-      throw error;
+    if (result) {
+      set({ profile: result, loading: false });
+      
+      // Salva nel cache
+      profileCache.set(result);
+      
+      // Invalida la memoization per questo utente
+      memoizedFetchProfile.cache?.delete(profileData.id);
     }
-    
-    set({ profile: data, loading: false });
-    
-    // Salva nel cache
-    profileCache.set(data);
-    
-    // Invalida la memoization per questo utente
-    memoizedFetchProfile.cache?.delete(profileData.id);
   },
   
   deleteProfile: async (userId: string) => {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase non è configurato');
+    if (!checkSupabaseConnection()) {
+      throw new Error('Supabase non è configurato. Verifica le variabili d\'ambiente.');
     }
     
-    const { error } = await supabase
-      .from('profiles')
-      .delete()
-      .eq('id', userId);
-    
-    if (error) {
-      console.error('Error deleting profile:', error);
-      throw error;
-    }
+    await safeSupabaseOperation(async () => {
+      const { error } = await supabase!
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+      
+      if (error) {
+        console.error('Error deleting profile:', error);
+        throw error;
+      }
+    });
     
     set({ profile: null });
     

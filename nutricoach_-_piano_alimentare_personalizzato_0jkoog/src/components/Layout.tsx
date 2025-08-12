@@ -3,17 +3,20 @@ import { Home, Camera, TrendingUp, User, LogOut, Sparkles, Plus, CalendarDays } 
 import { Button } from '@/components/ui/button';
 import { useAuthStore } from '@/stores/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { PWAInstallPrompt } from './PWAInstallPrompt';
+import { useAnimationOptimizer } from '@/lib/animationOptimizer';
 
 export function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuthStore();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { getFramerMotionConfig, shouldReduceAnimations } = useAnimationOptimizer();
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/auth');
+    // Il logout ora naviga automaticamente a /auth
   };
 
   const navItems = [
@@ -73,10 +76,11 @@ export function Layout() {
 
       {/* Floating action button */}
       <motion.button
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={shouldReduceAnimations() ? {} : { scale: 1.1 }}
+        whileTap={shouldReduceAnimations() ? {} : { scale: 0.95 }}
+        transition={getFramerMotionConfig()}
         onClick={() => navigate('/meals')}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-green-400 to-blue-500 rounded-full shadow-lg flex items-center justify-center z-50 motion-safe:animate-pulse-glow transform-gpu will-change-transform"
+        className="fixed bottom-24 right-6 w-14 h-14 bg-gradient-to-r from-green-400 to-blue-500 rounded-full shadow-lg flex items-center justify-center z-50 motion-safe:animate-pulse-glow gpu-accelerated"
       >
         <Plus className="h-6 w-6 text-white" />
       </motion.button>
@@ -106,9 +110,10 @@ export function Layout() {
                   </AnimatePresence>
                   
                   <motion.div
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="relative transform-gpu will-change-transform"
+                    whileHover={shouldReduceAnimations() ? {} : { scale: 1.1 }}
+                    whileTap={shouldReduceAnimations() ? {} : { scale: 0.95 }}
+                    transition={getFramerMotionConfig()}
+                    className="relative gpu-accelerated"
                   >
                     <item.icon
                       className={`h-6 w-6 relative z-10 transition-all duration-300 ${
@@ -133,6 +138,9 @@ export function Layout() {
           </div>
         </div>
       </nav>
+
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
     </div>
   );
 }

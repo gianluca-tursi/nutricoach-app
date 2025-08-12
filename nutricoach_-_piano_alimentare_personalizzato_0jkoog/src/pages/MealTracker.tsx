@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { it } from 'date-fns/locale';
 import { PhotoAnalyzer } from '@/components/PhotoAnalyzer';
 import { VoiceRecorder } from '@/components/VoiceRecorder';
 import { FoodAnalysisResult } from '@/lib/textAnalysis';
+import { useQuickFoods } from '@/hooks/useQuickFoods';
 import { 
   Camera, 
   Mic, 
@@ -24,15 +25,7 @@ import {
   Sun,
   Sunset,
   Moon,
-  Apple,
-  Pizza,
-  Salad,
-  Sandwich,
-  Cookie,
-  Beef,
-  Fish,
-  Egg,
-  Milk,
+  X,
   Sparkles
 } from 'lucide-react';
 
@@ -43,21 +36,12 @@ const MEAL_TYPES = [
   { value: 'snack', label: 'Spuntino', icon: Moon, time: 'Qualsiasi ora', gradient: 'from-blue-400 to-indigo-400' },
 ];
 
-const QUICK_FOODS = [
-  { name: 'Mela', icon: Apple, calories: 52, proteins: 0.3, carbs: 14, fats: 0.2, gradient: 'from-red-400 to-pink-400' },
-  { name: 'Pizza Margherita', icon: Pizza, calories: 266, proteins: 11, carbs: 33, fats: 10, gradient: 'from-orange-400 to-red-400' },
-  { name: 'Insalata Mista', icon: Salad, calories: 35, proteins: 2, carbs: 7, fats: 0.5, gradient: 'from-green-400 to-emerald-400' },
-  { name: 'Panino', icon: Sandwich, calories: 250, proteins: 10, carbs: 30, fats: 10, gradient: 'from-yellow-400 to-amber-400' },
-  { name: 'Biscotti', icon: Cookie, calories: 160, proteins: 2, carbs: 22, fats: 7, gradient: 'from-amber-400 to-orange-400' },
-  { name: 'Bistecca', icon: Beef, calories: 271, proteins: 26, carbs: 0, fats: 18, gradient: 'from-red-500 to-red-700' },
-  { name: 'Salmone', icon: Fish, calories: 208, proteins: 20, carbs: 0, fats: 13, gradient: 'from-blue-400 to-cyan-400' },
-  { name: 'Uova', icon: Egg, calories: 155, proteins: 13, carbs: 1, fats: 11, gradient: 'from-yellow-300 to-yellow-500' },
-  { name: 'Latte', icon: Milk, calories: 42, proteins: 3.4, carbs: 5, fats: 1, gradient: 'from-gray-100 to-gray-300' },
-];
+
 
 export function MealTracker() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { quickFoods, addQuickFood, removeQuickFood } = useQuickFoods();
   
   // Funzione per determinare il tipo di pasto basato sull'orario
   const getCurrentMealType = () => {
@@ -80,6 +64,14 @@ export function MealTracker() {
   const [loading, setLoading] = useState(false);
   const [showPhotoAnalyzer, setShowPhotoAnalyzer] = useState(false);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  
+  // Calcola gli alimenti per pagina (9 per pagina)
+  const ITEMS_PER_PAGE = 9;
+  const totalPages = Math.ceil(quickFoods.length / ITEMS_PER_PAGE);
+  const startIndex = currentPage * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentFoods = quickFoods.slice(startIndex, endIndex);
 
   // Apri automaticamente il PhotoAnalyzer quando si clicca sulla tab "photo"
   const handleTabChange = (value: string) => {
@@ -98,9 +90,44 @@ export function MealTracker() {
     setShowVoiceRecorder(false);
   };
 
+  // Funzioni per la navigazione tra pagine
+  const nextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const prevPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  // Reset pagina quando cambia il numero totale di pagine
+  useEffect(() => {
+    const newTotalPages = Math.ceil(quickFoods.length / ITEMS_PER_PAGE);
+    if (currentPage >= newTotalPages && newTotalPages > 0) {
+      setCurrentPage(newTotalPages - 1);
+    }
+  }, [quickFoods.length, currentPage]);
+
+  // Gestione swipe per mobile
+  const handleSwipe = (direction: 'left' | 'right') => {
+    if (direction === 'left' && currentPage < totalPages - 1) {
+      nextPage();
+    } else if (direction === 'right' && currentPage > 0) {
+      prevPage();
+    }
+  };
+
   const handleVoiceAnalysisComplete = async (result: FoodAnalysisResult) => {
     if (!selectedMealType) {
       toast.error('Seleziona prima il tipo di pasto');
+      return;
+    }
+
+    if (!supabase) {
+      toast.error('Errore di configurazione del database');
       return;
     }
 
@@ -125,24 +152,44 @@ export function MealTracker() {
       // Aggiorna gli obiettivi giornalieri
       const now = new Date();
       const today = format(now, 'yyyy-MM-dd');
-      const { data: dailyGoal } = await supabase
-        .from('daily_goals')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('date', today)
-        .single();
-
-      if (dailyGoal) {
-        await supabase
+      try {
+        const { data: dailyGoal, error: goalError } = await supabase
           .from('daily_goals')
-          .update({
-            consumed_calories: dailyGoal.consumed_calories + result.total_calories,
-            consumed_proteins: dailyGoal.consumed_proteins + result.total_proteins,
-            consumed_carbs: dailyGoal.consumed_carbs + result.total_carbs,
-            consumed_fats: dailyGoal.consumed_fats + result.total_fats,
-          })
-          .eq('id', dailyGoal.id);
+          .select('*')
+          .eq('user_id', user?.id)
+          .eq('date', today)
+          .maybeSingle();
+
+        if (goalError) {
+          console.warn('Error fetching daily goal:', goalError);
+        }
+
+        if (dailyGoal) {
+          await supabase
+            .from('daily_goals')
+            .update({
+              consumed_calories: dailyGoal.consumed_calories + result.total_calories,
+              consumed_proteins: dailyGoal.consumed_proteins + result.total_proteins,
+              consumed_carbs: dailyGoal.consumed_carbs + result.total_carbs,
+              consumed_fats: dailyGoal.consumed_fats + result.total_fats,
+            })
+            .eq('id', dailyGoal.id);
+        } else {
+          console.log('No daily goal found for today, will be created by Dashboard');
+        }
+      } catch (error) {
+        console.warn('Error with daily goals update:', error);
+        // Continua comunque con il salvataggio del pasto
       }
+
+      // Aggiungi agli alimenti rapidi se non esiste già
+      await addQuickFood({
+        name: result.foods[0]?.name || 'Pasto da voce',
+        calories: result.total_calories,
+        proteins: result.total_proteins,
+        carbs: result.total_carbs,
+        fats: result.total_fats,
+      });
 
       toast.success('Pasto da voce registrato con successo!');
       setSelectedMealType('');
@@ -166,6 +213,11 @@ export function MealTracker() {
       return;
     }
 
+    if (!supabase) {
+      toast.error('Errore di configurazione del database');
+      return;
+    }
+
     setLoading(true);
     try {
       // Salva il pasto principale con i totali
@@ -186,24 +238,44 @@ export function MealTracker() {
 
       // Aggiorna gli obiettivi giornalieri
       const today = format(new Date(), 'yyyy-MM-dd');
-      const { data: dailyGoal } = await supabase
-        .from('daily_goals')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('date', today)
-        .single();
-
-      if (dailyGoal) {
-        await supabase
+      try {
+        const { data: dailyGoal, error: goalError } = await supabase
           .from('daily_goals')
-          .update({
-            consumed_calories: dailyGoal.consumed_calories + result.total_calories,
-            consumed_proteins: dailyGoal.consumed_proteins + result.total_proteins,
-            consumed_carbs: dailyGoal.consumed_carbs + result.total_carbs,
-            consumed_fats: dailyGoal.consumed_fats + result.total_fats,
-          })
-          .eq('id', dailyGoal.id);
+          .select('*')
+          .eq('user_id', user?.id)
+          .eq('date', today)
+          .maybeSingle();
+
+        if (goalError) {
+          console.warn('Error fetching daily goal:', goalError);
+        }
+
+        if (dailyGoal) {
+          await supabase
+            .from('daily_goals')
+            .update({
+              consumed_calories: dailyGoal.consumed_calories + result.total_calories,
+              consumed_proteins: dailyGoal.consumed_proteins + result.total_proteins,
+              consumed_carbs: dailyGoal.consumed_carbs + result.total_carbs,
+              consumed_fats: dailyGoal.consumed_fats + result.total_fats,
+            })
+            .eq('id', dailyGoal.id);
+        } else {
+          console.log('No daily goal found for today, will be created by Dashboard');
+        }
+      } catch (error) {
+        console.warn('Error with daily goals update:', error);
+        // Continua comunque con il salvataggio del pasto
       }
+
+        // Aggiungi agli alimenti rapidi se non esiste già
+        await addQuickFood({
+          name: result.foods[0]?.name || 'Pasto da foto',
+          calories: result.total_calories,
+          proteins: result.total_proteins,
+          carbs: result.total_carbs,
+          fats: result.total_fats,
+        });
 
                 toast.success('Pasto da foto registrato con successo!');
           setSelectedMealType('');
@@ -221,9 +293,14 @@ export function MealTracker() {
     }
   };
 
-  const handleQuickAdd = async (food: typeof QUICK_FOODS[0]) => {
+  const handleQuickAdd = async (food: any) => {
     if (!selectedMealType) {
       toast.error('Seleziona prima il tipo di pasto');
+      return;
+    }
+
+    if (!supabase) {
+      toast.error('Errore di configurazione del database');
       return;
     }
 
@@ -246,23 +323,34 @@ export function MealTracker() {
 
       // Aggiorna gli obiettivi giornalieri
       const today = format(new Date(), 'yyyy-MM-dd');
-      const { data: dailyGoal } = await supabase
-        .from('daily_goals')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('date', today)
-        .single();
-
-      if (dailyGoal) {
-        await supabase
+      try {
+        const { data: dailyGoal, error: goalError } = await supabase
           .from('daily_goals')
-          .update({
-            consumed_calories: dailyGoal.consumed_calories + food.calories,
-            consumed_proteins: dailyGoal.consumed_proteins + food.proteins,
-            consumed_carbs: dailyGoal.consumed_carbs + food.carbs,
-            consumed_fats: dailyGoal.consumed_fats + food.fats,
-          })
-          .eq('id', dailyGoal.id);
+          .select('*')
+          .eq('user_id', user?.id)
+          .eq('date', today)
+          .maybeSingle();
+
+        if (goalError) {
+          console.warn('Error fetching daily goal:', goalError);
+        }
+
+        if (dailyGoal) {
+          await supabase
+            .from('daily_goals')
+            .update({
+              consumed_calories: dailyGoal.consumed_calories + food.calories,
+              consumed_proteins: dailyGoal.consumed_proteins + food.proteins,
+              consumed_carbs: dailyGoal.consumed_carbs + food.carbs,
+              consumed_fats: dailyGoal.consumed_fats + food.fats,
+            })
+            .eq('id', dailyGoal.id);
+        } else {
+          console.log('No daily goal found for today, will be created by Dashboard');
+        }
+      } catch (error) {
+        console.warn('Error with daily goals update:', error);
+        // Continua comunque con il salvataggio del pasto
       }
 
                 toast.success(`${food.name} aggiunto con successo!`);
@@ -285,6 +373,11 @@ export function MealTracker() {
       return;
     }
 
+    if (!supabase) {
+      toast.error('Errore di configurazione del database');
+      return;
+    }
+
     setLoading(true);
     try {
       const mealData = {
@@ -304,24 +397,44 @@ export function MealTracker() {
 
       // Aggiorna gli obiettivi giornalieri
       const today = format(new Date(), 'yyyy-MM-dd');
-      const { data: dailyGoal } = await supabase
-        .from('daily_goals')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('date', today)
-        .single();
-
-      if (dailyGoal) {
-        await supabase
+      try {
+        const { data: dailyGoal, error: goalError } = await supabase
           .from('daily_goals')
-          .update({
-            consumed_calories: dailyGoal.consumed_calories + mealData.calories,
-            consumed_proteins: dailyGoal.consumed_proteins + mealData.proteins,
-            consumed_carbs: dailyGoal.consumed_carbs + mealData.carbs,
-            consumed_fats: dailyGoal.consumed_fats + mealData.fats,
-          })
-          .eq('id', dailyGoal.id);
+          .select('*')
+          .eq('user_id', user?.id)
+          .eq('date', today)
+          .maybeSingle();
+
+        if (goalError) {
+          console.warn('Error fetching daily goal:', goalError);
+        }
+
+        if (dailyGoal) {
+          await supabase
+            .from('daily_goals')
+            .update({
+              consumed_calories: dailyGoal.consumed_calories + mealData.calories,
+              consumed_proteins: dailyGoal.consumed_proteins + mealData.proteins,
+              consumed_carbs: dailyGoal.consumed_carbs + mealData.carbs,
+              consumed_fats: dailyGoal.consumed_fats + mealData.fats,
+            })
+            .eq('id', dailyGoal.id);
+        } else {
+          console.log('No daily goal found for today, will be created by Dashboard');
+        }
+      } catch (error) {
+        console.warn('Error with daily goals update:', error);
+        // Continua comunque con il salvataggio del pasto
       }
+
+        // Aggiungi agli alimenti rapidi se non esiste già
+        await addQuickFood({
+          name: mealData.name,
+          calories: mealData.calories,
+          proteins: mealData.proteins,
+          carbs: mealData.carbs,
+          fats: mealData.fats,
+        });
 
                 toast.success('Pasto aggiunto con successo!');
           setManualEntry({ name: '', calories: '', proteins: '', carbs: '', fats: '' });
@@ -416,29 +529,108 @@ export function MealTracker() {
             animate={{ opacity: 1 }}
             className="glass-dark rounded-3xl p-6"
           >
-            <h3 className="text-lg font-semibold text-white mb-4">Alimenti Rapidi</h3>
-            <div className="grid grid-cols-3 gap-4">
-              {QUICK_FOODS.map((food, index) => (
-                <motion.button
-                  key={food.name}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.05 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleQuickAdd(food)}
-                  disabled={loading || !selectedMealType}
-                  className="relative overflow-hidden rounded-2xl p-4 hover-lift disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <div className={`absolute inset-0 bg-gradient-to-br ${food.gradient} opacity-20`} />
-                  <div className="relative flex flex-col items-center gap-2">
-                    <food.icon className="h-8 w-8 text-white" />
-                    <span className="text-sm font-medium text-white">{food.name}</span>
-                    <span className="text-xs text-gray-400">{food.calories} kcal</span>
-                  </div>
-                </motion.button>
-              ))}
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Alimenti Rapidi</h3>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <span>{currentPage + 1} di {totalPages}</span>
+                </div>
+              )}
             </div>
+            
+            {/* Contenitore con gestione swipe */}
+            <div 
+              className="relative overflow-hidden"
+              onTouchStart={(e) => {
+                const touch = e.touches[0];
+                const startX = touch.clientX;
+                
+                const handleTouchEnd = (e: TouchEvent) => {
+                  const touch = e.changedTouches[0];
+                  const endX = touch.clientX;
+                  const diffX = startX - endX;
+                  
+                  if (Math.abs(diffX) > 50) { // Swipe minimo di 50px
+                    if (diffX > 0) {
+                      handleSwipe('left'); // Swipe a sinistra = pagina successiva
+                    } else {
+                      handleSwipe('right'); // Swipe a destra = pagina precedente
+                    }
+                  }
+                  
+                  document.removeEventListener('touchend', handleTouchEnd);
+                };
+                
+                document.addEventListener('touchend', handleTouchEnd);
+              }}
+            >
+              <motion.div
+                key={currentPage}
+                initial={{ x: 300, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -300, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="grid grid-cols-3 gap-4"
+              >
+                {currentFoods.map((food, index) => (
+                  <motion.div
+                    key={food.id}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="relative group"
+                  >
+                    <motion.div 
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className={`relative overflow-hidden rounded-2xl p-4 hover-lift w-full cursor-pointer ${
+                        loading || !selectedMealType ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                    >
+                      <div className={`absolute inset-0 bg-gradient-to-br ${food.gradient} opacity-20`} />
+                      
+                      {/* Pulsante di rimozione per alimenti personalizzati - all'interno del box */}
+                      {(food.id.startsWith('custom-') || food.user_id === user?.id) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeQuickFood(food.id);
+                          }}
+                          className="absolute top-2 right-2 z-10 w-6 h-6 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Rimuovi alimento"
+                        >
+                          <X className="h-3 w-3 text-white" />
+                        </button>
+                      )}
+                      
+                      <div 
+                        className="relative flex flex-col items-center gap-2"
+                        onClick={() => !loading && selectedMealType && handleQuickAdd(food)}
+                      >
+                        <food.icon className="h-8 w-8 text-white" />
+                        <span className="text-sm font-medium text-white text-center">{food.name}</span>
+                        <span className="text-xs text-gray-400">{food.calories} kcal</span>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </div>
+            
+            {/* Indicatori di pagina */}
+            {totalPages > 1 && (
+              <div className="flex justify-center mt-4 gap-2">
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setCurrentPage(i)}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      i === currentPage ? 'bg-white' : 'bg-gray-600'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
           </motion.div>
         </TabsContent>
 

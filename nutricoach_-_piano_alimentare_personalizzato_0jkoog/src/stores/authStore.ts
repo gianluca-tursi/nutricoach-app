@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured, checkSupabaseConnection, safeSupabaseOperation } from '@/lib/supabase';
 import { useProfileStore } from './profileStore';
 import { createLocalStorageCache } from '@/lib/performance';
 
@@ -21,7 +21,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   // Inizializza il listener per i cambiamenti di autenticazione
   initAuthListener: () => {
-    if (!isSupabaseConfigured) {
+    if (!checkSupabaseConnection()) {
+      console.warn('Auth listener non inizializzato - Supabase non configurato');
       set({ loading: false });
       return;
     }
@@ -39,8 +40,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }, 5000); // 5 secondi
     
     // Prima controlla la sessione corrente
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    safeSupabaseOperation(async () => {
+      const { data: { session } } = await supabase!.auth.getSession();
       clearTimeout(timeout);
+      
       if (session?.user) {
         set({ user: session.user, loading: false });
         sessionCache.set(session);
@@ -58,75 +61,98 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
     
     // Poi ascolta i cambiamenti
-    supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        set({ user: session.user, loading: false });
-        sessionCache.set(session);
-      } else if (event === 'SIGNED_OUT') {
-        set({ user: null, loading: false });
-        sessionCache.clear();
-        useProfileStore.getState().resetProfile();
-      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-        set({ user: session.user, loading: false });
-        sessionCache.set(session);
-      } else if (event === 'INITIAL_SESSION') {
-        if (session?.user) {
+    if (supabase) {
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
           set({ user: session.user, loading: false });
           sessionCache.set(session);
-        } else {
+        } else if (event === 'SIGNED_OUT') {
           set({ user: null, loading: false });
           sessionCache.clear();
           useProfileStore.getState().resetProfile();
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          set({ user: session.user, loading: false });
+          sessionCache.set(session);
+        } else if (event === 'INITIAL_SESSION') {
+          if (session?.user) {
+            set({ user: session.user, loading: false });
+            sessionCache.set(session);
+          } else {
+            set({ user: null, loading: false });
+            sessionCache.clear();
+            useProfileStore.getState().resetProfile();
+          }
         }
-      }
-    });
+      });
+    }
   },
   
   signUp: async (email: string, password: string) => {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase non è configurato');
+    if (!checkSupabaseConnection()) {
+      throw new Error('Supabase non è configurato. Verifica le variabili d\'ambiente.');
     }
     
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+    const result = await safeSupabaseOperation(async () => {
+      const { data, error } = await supabase!.auth.signUp({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      return data;
     });
     
-    if (error) throw error;
-    set({ user: data.user });
-    if (data.session) {
-      sessionCache.set(data.session);
+    if (result) {
+      set({ user: result.user });
+      if (result.session) {
+        sessionCache.set(result.session);
+      }
     }
   },
   
   signIn: async (email: string, password: string) => {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase non è configurato');
+    if (!checkSupabaseConnection()) {
+      throw new Error('Supabase non è configurato. Verifica le variabili d\'ambiente.');
     }
     
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const result = await safeSupabaseOperation(async () => {
+      const { data, error } = await supabase!.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) throw error;
+      return data;
     });
     
-    if (error) throw error;
-    set({ user: data.user });
-    if (data.session) {
-      sessionCache.set(data.session);
+    if (result) {
+      set({ user: result.user });
+      if (result.session) {
+        sessionCache.set(result.session);
+      }
     }
   },
   
   signOut: async () => {
-    if (!isSupabaseConfigured) {
-      throw new Error('Supabase non è configurato');
+    if (!checkSupabaseConnection()) {
+      throw new Error('Supabase non è configurato. Verifica le variabili d\'ambiente.');
     }
     
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    await safeSupabaseOperation(async () => {
+      const { error } = await supabase!.auth.signOut();
+      if (error) throw error;
+    });
     
     // Reset profile when user signs out
     useProfileStore.getState().resetProfile();
     sessionCache.clear();
+    
+    // Reset PWA prompt flag so it shows again on next login
+    localStorage.removeItem('pwa-prompt-seen');
+    
     set({ user: null });
+    
+    // Navigate to auth page instead of landing
+    window.location.href = '/auth';
   },
 }));

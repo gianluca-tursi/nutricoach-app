@@ -4,11 +4,15 @@ import App from './App.tsx';
 import './index.css';
 import './lib/performance.ts';
 import { productionOptimizations } from './lib/production.ts';
+import { AnimationOptimizer } from './lib/animationOptimizer';
 
 // Performance monitoring
 productionOptimizations.performance.mark('app-start');
 
-// Register service worker for PWA install prompt
+// Initialize animation optimizer
+AnimationOptimizer.getInstance();
+
+// Service Worker registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
@@ -17,6 +21,8 @@ if ('serviceWorker' in navigator) {
 
 // Error boundary for the entire app
 window.addEventListener('error', (event) => {
+  // Prevent default error handling to avoid message channel issues
+  event.preventDefault();
   productionOptimizations.errorHandler(event.error, {
     filename: event.filename,
     lineno: event.lineno,
@@ -25,6 +31,8 @@ window.addEventListener('error', (event) => {
 });
 
 window.addEventListener('unhandledrejection', (event) => {
+  // Prevent default rejection handling to avoid message channel issues
+  event.preventDefault();
   productionOptimizations.errorHandler(new Error(event.reason), {
     type: 'unhandledrejection'
   });
@@ -34,9 +42,14 @@ window.addEventListener('unhandledrejection', (event) => {
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && productionOptimizations.isProduction) {
     // Clean up memory when page is hidden
-    setTimeout(() => {
-      productionOptimizations.memoryOptimization.cleanup();
-    }, 1000);
+    try {
+      setTimeout(() => {
+        productionOptimizations.memoryOptimization.cleanup();
+      }, 1000);
+    } catch (error) {
+      // Ignore cleanup errors to avoid message channel issues
+      console.warn('Memory cleanup error:', error);
+    }
   }
 });
 

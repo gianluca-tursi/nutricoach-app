@@ -1,145 +1,103 @@
-import { motion } from 'framer-motion';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Sparkles, Database, Key, ExternalLink, Copy, CheckCircle } from 'lucide-react';
-import { useState } from 'react';
-import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Settings, Database, Key, Globe } from 'lucide-react';
 
 export function SupabaseSetup() {
-  const [copiedUrl, setCopiedUrl] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(false);
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
-  const copyToClipboard = (text: string, type: 'url' | 'key') => {
-    navigator.clipboard.writeText(text);
-    if (type === 'url') {
-      setCopiedUrl(true);
-      setTimeout(() => setCopiedUrl(false), 2000);
-    } else {
-      setCopiedKey(true);
-      setTimeout(() => setCopiedKey(false), 2000);
-    }
-    toast.success('Copiato negli appunti!');
-  };
+  const missingVars = [];
+  if (!supabaseUrl) missingVars.push('VITE_SUPABASE_URL');
+  if (!supabaseAnonKey) missingVars.push('VITE_SUPABASE_ANON_KEY');
+  if (!openaiApiKey) missingVars.push('VITE_OPENAI_API_KEY');
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 via-white to-blue-50 p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-2xl"
-      >
-        <div className="text-center mb-8">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-            className="inline-block"
-          >
-            <Sparkles className="h-16 w-16 text-green-600 mx-auto mb-4" />
-          </motion.div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
-            NutriCoach
-          </h1>
-          <p className="text-gray-600 mt-2">Configurazione Database</p>
-        </div>
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
+      <Card className="w-full max-w-2xl bg-gray-900 border-gray-700">
+        <CardHeader className="text-center">
+          <div className="mx-auto mb-4 w-16 h-16 bg-red-600 rounded-full flex items-center justify-center">
+            <Settings className="w-8 h-8 text-white" />
+          </div>
+          <CardTitle className="text-2xl text-white">Configurazione Richiesta</CardTitle>
+          <CardDescription className="text-gray-400">
+            NutriCoach richiede alcune configurazioni per funzionare correttamente
+          </CardDescription>
+        </CardHeader>
+        
+        <CardContent className="space-y-6">
+          <Alert className="bg-red-900/20 border-red-700">
+            <AlertDescription className="text-red-300">
+              <strong>Attenzione:</strong> Le seguenti variabili d'ambiente non sono configurate:
+            </AlertDescription>
+          </Alert>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              Connetti Supabase
-            </CardTitle>
-            <CardDescription>
-              Per utilizzare NutriCoach, devi prima configurare il database
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <Alert>
-              <AlertTitle>⚠️ Configurazione Richiesta</AlertTitle>
-              <AlertDescription>
-                Supabase non è ancora configurato. Segui questi passaggi per iniziare:
-              </AlertDescription>
-            </Alert>
-
-            <div className="space-y-4">
-              <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">1</span>
-                  Connetti Supabase nel Chat
-                </h3>
-                <p className="text-sm text-gray-600 ml-8">
-                  Usa il comando di connessione Supabase nella chat box per collegare il tuo progetto.
-                </p>
-              </div>
-
-              <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">2</span>
-                  Aggiorna il file .env
-                </h3>
-                <p className="text-sm text-gray-600 ml-8 mb-3">
-                  Dopo la connessione, aggiorna il file <code className="bg-gray-200 px-1 rounded">.env</code> con le tue credenziali:
-                </p>
-                <div className="ml-8 space-y-2">
-                  <div className="bg-white p-3 rounded border font-mono text-sm">
-                    <div className="flex items-center justify-between">
-                      <span>VITE_SUPABASE_URL=<span className="text-blue-600">your_project_url</span></span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyToClipboard('VITE_SUPABASE_URL=', 'url')}
-                      >
-                        {copiedUrl ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="bg-white p-3 rounded border font-mono text-sm">
-                    <div className="flex items-center justify-between">
-                      <span>VITE_SUPABASE_ANON_KEY=<span className="text-blue-600">your_anon_key</span></span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => copyToClipboard('VITE_SUPABASE_ANON_KEY=', 'key')}
-                      >
-                        {copiedKey ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
+          <div className="space-y-4">
+            {missingVars.map((varName) => (
+              <div key={varName} className="flex items-center space-x-3 p-3 bg-gray-800 rounded-lg">
+                <div className="w-8 h-8 bg-red-600 rounded-full flex items-center justify-center">
+                  {varName.includes('SUPABASE') ? (
+                    <Database className="w-4 h-4 text-white" />
+                  ) : varName.includes('OPENAI') ? (
+                    <Key className="w-4 h-4 text-white" />
+                  ) : (
+                    <Globe className="w-4 h-4 text-white" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-white font-medium">{varName}</p>
+                  <p className="text-gray-400 text-sm">
+                    {varName.includes('SUPABASE_URL') && 'URL del progetto Supabase'}
+                    {varName.includes('SUPABASE_ANON_KEY') && 'Chiave anonima Supabase'}
+                    {varName.includes('OPENAI_API_KEY') && 'Chiave API OpenAI'}
+                  </p>
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="p-4 bg-gray-50 rounded-lg space-y-3">
-                <h3 className="font-semibold flex items-center gap-2">
-                  <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm">3</span>
-                  Riavvia l'applicazione
-                </h3>
-                <p className="text-sm text-gray-600 ml-8">
-                  Dopo aver aggiornato il file .env, riavvia il server di sviluppo per applicare le modifiche.
-                </p>
-              </div>
+          <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4">
+            <h3 className="text-blue-300 font-semibold mb-2">Come Configurare:</h3>
+            <div className="space-y-2 text-sm text-gray-300">
+              <p><strong>1. Supabase:</strong></p>
+              <ul className="list-disc list-inside ml-4 space-y-1">
+                <li>Vai su <a href="https://supabase.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">supabase.com</a></li>
+                <li>Crea un nuovo progetto</li>
+                <li>Copia l'URL del progetto e la chiave anonima</li>
+              </ul>
+              
+              <p className="mt-3"><strong>2. OpenAI:</strong></p>
+              <ul className="list-disc list-inside ml-4 space-y-1">
+                <li>Vai su <a href="https://platform.openai.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">platform.openai.com</a></li>
+                <li>Crea una nuova API key</li>
+                <li>Copia la chiave API</li>
+              </ul>
+              
+              <p className="mt-3"><strong>3. Netlify:</strong></p>
+              <ul className="list-disc list-inside ml-4 space-y-1">
+                <li>Vai su <a href="https://app.netlify.com" target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">app.netlify.com</a></li>
+                <li>Seleziona il tuo sito</li>
+                <li>Vai su Site settings → Environment variables</li>
+                <li>Aggiungi le variabili con i valori copiati</li>
+              </ul>
             </div>
+          </div>
 
-            <div className="flex items-center justify-center pt-4">
-              <Button asChild>
-                <a 
-                  href="https://supabase.com/docs/guides/getting-started" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2"
-                >
-                  Documentazione Supabase
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="flex justify-center">
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              Ricarica dopo la configurazione
+            </Button>
+          </div>
 
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>Hai bisogno di aiuto? Chiedi nella chat per assistenza nella configurazione.</p>
-        </div>
-      </motion.div>
+          <div className="text-center text-gray-400 text-sm">
+            <p>Dopo aver configurato le variabili d'ambiente, ricarica la pagina per continuare.</p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

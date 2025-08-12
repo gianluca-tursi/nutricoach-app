@@ -5,11 +5,12 @@ import { Layout } from '@/components/Layout';
 import { useAuthStore } from '@/stores/authStore';
 import { useProfileStore } from '@/stores/profileStore';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { OptimizedPageTransition } from '@/components/OptimizedPageTransition';
 
 // Lazy loading delle pagine con correzione per named exports
 const Dashboard = lazy(() => import('@/pages/Dashboard').then(module => ({ default: module.Dashboard })));
 const MealTracker = lazy(() => import('@/pages/MealTracker').then(module => ({ default: module.MealTracker })));
-const Progress = lazy(() => import('@/pages/Progress').then(module => ({ default: module.Progress })));
+const Progress = lazy(() => import('@/pages/Progress').then(module => ({ default: module.Progress })).catch(() => ({ default: () => <div>Caricamento Progress...</div> })));
 const MealHistory = lazy(() => import('@/pages/MealHistory').then(module => ({ default: module.MealHistory })));
 const Profile = lazy(() => import('@/pages/Profile').then(module => ({ default: module.Profile })));
 const Auth = lazy(() => import('@/pages/Auth').then(module => ({ default: module.Auth })));
@@ -76,59 +77,71 @@ function App() {
     }
   }, [initAuthListener]);
 
-  // Memoizza la logica di fetch del profilo
-  const handleProfileFetch = useCallback(async () => {
-    if (user && isSupabaseConfigured && !profileRequested && !profileLoading && isInitialized) {
-      await fetchProfile(user.id);
-      setProfileRequested(true);
-    }
-  }, [user, fetchProfile, profileRequested, profileLoading, isInitialized]);
+
 
   // Memoizza le condizioni di loading
   const showLoading = useMemo(() => authLoading || !isInitialized, [authLoading, isInitialized]);
-  const showProfileLoading = useMemo(() => user && (profileLoading || !profileReady), [user, profileLoading, profileReady]);
 
   // Memoizza le rotte protette
   const protectedRoutes = useMemo(() => {
     if (!user) return null;
     
+    console.log('Protected routes evaluation:', {
+      user: !!user,
+      profile: !!profile,
+      profileLoading,
+      profileReady,
+      shouldRedirectToOnboarding: !profile && !profileLoading,
+      shouldShowLoading: profileLoading
+    });
+    
     return (
       <>
-        {/* Rotta specifica per onboarding */}
-        <Route path="/onboarding" element={
-          <Suspense fallback={<PageLoading />}>
-            <Onboarding />
-          </Suspense>
-        } />
-        
-        {/* Se l'utente non ha un profilo, vai all'onboarding */}
-        {!profile ? (
+        {/* Se l'utente non ha un profilo E non sta caricando, vai all'onboarding */}
+        {!profile && !profileLoading && profileReady ? (
           <Route path="*" element={<Navigate to="/onboarding" />} />
+        ) : profileLoading || !profileReady ? (
+          <Route path="*" element={
+            (() => {
+              console.log('Showing ProfileLoadingScreen because:', { profileLoading, profileReady });
+              return <ProfileLoadingScreen />;
+            })()
+          } />
         ) : (
           <Route element={<Layout />}>
             <Route path="/dashboard" element={
               <Suspense fallback={<PageLoading />}>
-                <Dashboard />
+                <OptimizedPageTransition>
+                  <Dashboard />
+                </OptimizedPageTransition>
               </Suspense>
             } />
             <Route path="/meals" element={
               <Suspense fallback={<PageLoading />}>
-                <MealTracker />
+                <OptimizedPageTransition>
+                  <MealTracker />
+                </OptimizedPageTransition>
               </Suspense>
             } />
             <Route path="/progress" element={
               <Suspense fallback={<PageLoading />}>
-                <Progress />
+                <OptimizedPageTransition>
+                  <Progress />
+                </OptimizedPageTransition>
               </Suspense>
             } />
             <Route path="/history" element={
               <Suspense fallback={<PageLoading />}>
-                <MealHistory />
+                <OptimizedPageTransition>
+                  <MealHistory />
+                </OptimizedPageTransition>
               </Suspense>
             } />
             <Route path="/profile" element={
               <Suspense fallback={<PageLoading />}>
-                <Profile />
+                <OptimizedPageTransition>
+                  <Profile />
+                </OptimizedPageTransition>
               </Suspense>
             } />
             <Route path="*" element={<Navigate to="/dashboard" />} />
@@ -136,7 +149,7 @@ function App() {
         )}
       </>
     );
-  }, [user, profile]);
+  }, [user, profile, profileLoading, profileReady]);
 
   // Memoizza le rotte pubbliche
   const publicRoutes = useMemo(() => (
@@ -155,6 +168,15 @@ function App() {
           <Navigate to="/dashboard" />
         )
       } />
+      <Route path="/onboarding" element={
+        user ? (
+          <Suspense fallback={<PageLoading />}>
+            <Onboarding />
+          </Suspense>
+        ) : (
+          <Navigate to="/auth" />
+        )
+      } />
     </>
   ), [user]);
 
@@ -163,23 +185,60 @@ function App() {
     initializeApp();
   }, [initializeApp]);
 
+  // Timeout di sicurezza per evitare loading infinito
   useEffect(() => {
-    handleProfileFetch();
-  }, [handleProfileFetch]);
+    const timeout = setTimeout(() => {
+      if (!isInitialized) {
+        console.warn('App initialization timeout, forcing initialization');
+        setIsInitialized(true);
+      }
+      if (user && !profileReady) {
+        console.warn('Profile loading timeout, forcing ready state');
+        setProfileReady(true);
+      }
+    }, 10000); // 10 secondi
+
+    return () => clearTimeout(timeout);
+  }, [isInitialized, user, profileReady]);
+
+  useEffect(() => {
+    if (user && isSupabaseConfigured && !profileRequested && isInitialized) {
+      console.log('Fetching profile for user:', user.id);
+      setProfileRequested(true);
+      fetchProfile(user.id);
+    }
+  }, [user?.id, isSupabaseConfigured, profileRequested, isInitialized, fetchProfile]);
 
   // Reset flag quando cambia utente
   useEffect(() => {
-    setProfileRequested(false);
+    if (user?.id) {
+      setProfileRequested(false);
+      setProfileReady(false);
+    }
   }, [user?.id]);
 
   // Quando il profilo è caricato, aspetta un momento prima di considerarlo pronto
   useEffect(() => {
-    if (!profileLoading) {
-      const timer = setTimeout(() => setProfileReady(true), 300);
+    console.log('Profile ready effect:', {
+      profileLoading,
+      profileRequested,
+      profile: !!profile,
+      profileReady
+    });
+    
+    if (!profileLoading && profile) {
+      console.log('Profile loaded, setting ready in 300ms:', profile);
+      const timer = setTimeout(() => {
+        console.log('Setting profileReady to true');
+        setProfileReady(true);
+      }, 300);
       return () => clearTimeout(timer);
     }
-    setProfileReady(false);
-  }, [profileLoading]);
+    if (profileLoading) {
+      console.log('Profile loading, setting ready to false');
+      setProfileReady(false);
+    }
+  }, [profileLoading, profile]);
 
   // Preload delle pagine più utilizzate quando l'utente è autenticato
   useEffect(() => {
@@ -212,10 +271,20 @@ function App() {
     return <LoadingScreen />;
   }
 
-  // Se il profilo sta caricando, mostra loading
-  if (showProfileLoading) {
-    return <ProfileLoadingScreen />;
-  }
+  // Debug logs
+  console.log('App state:', {
+    authLoading,
+    isInitialized,
+    user: !!user,
+    profile: !!profile,
+    profileLoading,
+    profileReady,
+    showLoading,
+    userEmail: user?.email,
+    profileId: profile?.id
+  });
+
+
 
   return (
     <Router>

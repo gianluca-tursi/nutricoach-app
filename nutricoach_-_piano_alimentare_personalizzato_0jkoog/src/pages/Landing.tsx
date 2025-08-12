@@ -25,7 +25,7 @@ import {
   Clock
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '@/stores/authStore';
+
 
 const apps = [
   {
@@ -103,7 +103,7 @@ const stats = [
 ];
 
 export function Landing() {
-  const { user } = useAuthStore();
+  
   
   return (
     <div className="min-h-screen bg-black text-white overflow-hidden">
@@ -156,9 +156,9 @@ export function Landing() {
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button asChild size="lg" className="bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90 text-lg px-8 py-6">
-                <Link to={user ? "/dashboard" : "/auth"}>
+                <Link to="/auth">
                   <Download className="h-5 w-5 mr-2" />
-                  {user ? "Vai alla Dashboard" : "Inizia Gratis"}
+                  Inizia Gratis
                 </Link>
               </Button>
               <Button size="lg" className="bg-transparent border-2 border-white/20 text-white hover:bg-white/10 hover:border-white/40 text-lg px-8 py-6 transition-all duration-300">
@@ -228,8 +228,8 @@ export function Landing() {
                     </ul>
                                          {app.status === 'Disponibile ora' && (
                        <Button asChild className="w-full mt-4 bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90">
-                         <Link to={user ? "/dashboard" : "/auth"}>
-                           {user ? "Vai alla Dashboard" : "Prova Ora"}
+                         <Link to="/auth">
+                           Prova Ora
                            <ArrowRight className="h-4 w-4 ml-2" />
                          </Link>
                        </Button>
@@ -407,9 +407,9 @@ export function Landing() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
                              <Button asChild size="lg" className="bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90 text-lg px-8 py-6">
-                 <Link to={user ? "/dashboard" : "/auth"}>
+                 <Link to="/auth">
                    <Download className="h-5 w-5 mr-2" />
-                   {user ? "Vai alla Dashboard" : "Inizia Gratis Ora"}
+                   Inizia Gratis Ora
                  </Link>
                </Button>
               <Button size="lg" className="bg-transparent border-2 border-white/20 text-white hover:bg-white/10 hover:border-white/40 text-lg px-8 py-6 transition-all duration-300">

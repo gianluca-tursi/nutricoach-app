@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -30,15 +30,17 @@ import {
   Battery,
   Smile,
   Mail,
-  SkipForward
+  MessageCircle,
+  LogOut
 } from 'lucide-react';
+import { NutritionCalculator, type UserProfile, type NutritionPlan } from '@/lib/nutritionCalculator';
 
 const ACTIVITY_LEVELS = [
   { value: 'sedentary', label: 'Sedentario', description: 'Poco o nessun esercizio', icon: Battery, color: 'from-gray-400 to-gray-600' },
   { value: 'light', label: 'Leggermente attivo', description: '1-3 giorni a settimana', icon: Zap, color: 'from-yellow-400 to-orange-400' },
   { value: 'moderate', label: 'Moderatamente attivo', description: '3-5 giorni a settimana', icon: TrendingUp, color: 'from-green-400 to-teal-400' },
   { value: 'active', label: 'Molto attivo', description: '6-7 giorni a settimana', icon: Dumbbell, color: 'from-blue-400 to-purple-400' },
-  { value: 'extra', label: 'Extra attivo', description: 'Atleta o lavoro fisico', icon: Trophy, color: 'from-purple-400 to-pink-400' },
+  { value: 'very_active', label: 'Extra attivo', description: 'Atleta o lavoro fisico', icon: Trophy, color: 'from-purple-400 to-pink-400' },
 ];
 
 const GOALS = [
@@ -78,14 +80,22 @@ const DIETARY_RESTRICTIONS = [
   { value: 'paleo', label: 'Paleo' },
 ];
 
+const HEALTH_CONDITIONS = [
+  'Diabete', 'Ipertensione', 'Colesterolo alto', 'Intolleranze alimentari',
+  'Allergie', 'Problemi digestivi', 'Problemi cardiaci', 'Problemi renali',
+  'Gravidanza', 'Allattamento'
+];
+
 export function Onboarding() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
-  const { upsertProfile } = useProfileStore();
+  const { user, signOut } = useAuthStore();
+  const { createProfile, profile, fetchProfile, upsertProfile } = useProfileStore();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showMotivational, setShowMotivational] = useState(false);
   const [showAppBenefits, setShowAppBenefits] = useState(false);
+  const [nutritionPlan, setNutritionPlan] = useState<NutritionPlan | null>(null);
+  const [isProfileLoaded, setIsProfileLoaded] = useState(false);
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -94,182 +104,223 @@ export function Onboarding() {
     height: '',
     weight: '',
     target_weight: '',
-    timeframe: '',
+    timeframe_months: '',
     activity_level: '',
     goal: '',
+    training_frequency: '0',
     obstacles: [] as string[],
     emotional_goals: [] as string[],
     dietary_restrictions: [] as string[],
     health_conditions: [] as string[],
-    friend_email: '',
   });
 
-  const totalSteps = 11;
+  const totalSteps = 10;
   const progress = (step / totalSteps) * 100;
 
-  const calculateDailyNeeds = () => {
-    const weight = parseFloat(formData.weight);
-    const height = parseFloat(formData.height);
-    const age = parseFloat(formData.age);
-    const gender = formData.gender;
-    
-    let bmr;
-    if (gender === 'male') {
-      bmr = 88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * age);
-    } else {
-      bmr = 447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * age);
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      // Il logout ora naviga automaticamente a /auth
+      toast.success('Logout effettuato con successo');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Errore durante il logout');
     }
-    
-    const activityMultipliers = {
-      sedentary: 1.2,
-      light: 1.375,
-      moderate: 1.55,
-      active: 1.725,
-      extra: 1.9,
+  };
+
+  // Carica il profilo esistente se presente
+  useEffect(() => {
+    if (user && !isProfileLoaded) {
+      fetchProfile(user.id);
+      setIsProfileLoaded(true);
+      
+      // Timeout di sicurezza per evitare loading infinito
+      const timeout = setTimeout(() => {
+        setIsProfileLoaded(true);
+      }, 5000); // 5 secondi
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [user, fetchProfile, isProfileLoaded]);
+
+  // Precarica i dati del profilo esistente nel form
+  useEffect(() => {
+    if (profile && !isProfileLoaded) {
+      try {
+        setFormData({
+          full_name: profile.full_name || '',
+          age: profile.age?.toString() || '',
+          gender: profile.gender || '',
+          height: profile.height?.toString() || '',
+          weight: profile.weight?.toString() || '',
+          target_weight: profile.target_weight?.toString() || '',
+          timeframe_months: profile.timeframe_months?.toString() || '',
+          activity_level: profile.activity_level || '',
+          goal: profile.goal || '',
+          training_frequency: profile.training_frequency?.toString() || '0',
+          obstacles: profile.obstacles || [],
+          emotional_goals: profile.emotional_goals || [],
+          dietary_restrictions: profile.dietary_restrictions || [],
+          health_conditions: profile.health_conditions || [],
+        });
+        setIsProfileLoaded(true);
+      } catch (error) {
+        console.warn('Error preloading profile data:', error);
+        setIsProfileLoaded(true);
+      }
+    }
+  }, [profile, isProfileLoaded]);
+
+  // Calcola automaticamente il piano nutrizionale quando si arriva allo step finale
+  // o quando cambiano i dati rilevanti
+  useEffect(() => {
+    if (step === 10) {
+      // Verifica che tutti i dati necessari siano presenti
+      if (formData.age && formData.gender && formData.height && formData.weight && 
+          formData.activity_level && formData.goal && formData.training_frequency) {
+        // Ricalcola sempre quando si arriva allo step 10
+        calculateDailyNeeds();
+      }
+    }
+  }, [step, formData.age, formData.gender, formData.height, formData.weight, 
+      formData.activity_level, formData.goal, formData.target_weight, formData.timeframe_months]);
+
+  // Resetta il piano nutrizionale quando cambiano i dati rilevanti
+  useEffect(() => {
+    if (nutritionPlan && step < 10) {
+      // Se cambiano i dati prima dello step 10, resetta il piano
+      setNutritionPlan(null);
+    }
+  }, [formData.weight, formData.target_weight, formData.timeframe_months, formData.goal, formData.activity_level]);
+
+  const calculateDailyNeeds = () => {
+    // Mappa i valori goal per il calcolatore nutrizionale
+    const goalMapping = {
+      'lose': 'lose_weight',
+      'gain': 'gain_weight', 
+      'maintain': 'maintain',
+      'health': 'maintain'
+    } as const;
+
+    const userProfile: UserProfile = {
+      age: parseInt(formData.age),
+      gender: formData.gender as 'male' | 'female',
+      height: parseInt(formData.height),
+      weight: parseFloat(formData.weight),
+      target_weight: formData.target_weight ? parseFloat(formData.target_weight) : undefined,
+      timeframe_months: formData.timeframe_months ? parseInt(formData.timeframe_months) : undefined,
+      activity_level: formData.activity_level as any,
+      goal: goalMapping[formData.goal as keyof typeof goalMapping] || 'maintain',
+      training_frequency: parseInt(formData.training_frequency),
+      dietary_preferences: formData.dietary_restrictions
     };
-    
-    const tdee = bmr * activityMultipliers[formData.activity_level as keyof typeof activityMultipliers];
-    
-    let dailyCalories = tdee;
-    if (formData.goal === 'lose') dailyCalories -= 500;
-    if (formData.goal === 'gain') dailyCalories += 500;
-    
-    const dailyProteins = (dailyCalories * 0.30) / 4;
-    const dailyCarbs = (dailyCalories * 0.40) / 4;
-    const dailyFats = (dailyCalories * 0.30) / 9;
-    
-    return {
-      daily_calories: Math.round(dailyCalories),
-      daily_proteins: Math.round(dailyProteins),
-      daily_carbs: Math.round(dailyCarbs),
-      daily_fats: Math.round(dailyFats),
-    };
+    const calculator = new NutritionCalculator(userProfile);
+    const plan = calculator.calculateNutritionPlan();
+    setNutritionPlan(plan);
   };
 
   const handleSubmit = async () => {
-    if (!user) {
-      toast.error('Devi essere autenticato per creare un profilo');
-      navigate('/auth');
-      return;
+    if (!user) return;
+    
+    // Calcola il piano nutrizionale se non è stato ancora calcolato
+    if (!nutritionPlan) {
+      calculateDailyNeeds();
+      // Aspetta un momento per il calcolo
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    // Validazione dei valori
-    const age = parseInt(formData.age);
-    const height = parseFloat(formData.height);
-    const weight = parseFloat(formData.weight);
-    const targetWeight = parseFloat(formData.target_weight);
-    
-    if (age < 10 || age > 120) {
-      toast.error('L\'età deve essere tra 10 e 120 anni');
-      return;
-    }
-    
-    if (height < 100 || height > 250) {
-      toast.error('L\'altezza deve essere tra 100 e 250 cm');
-      return;
-    }
-    
-    if (weight < 30 || weight > 300) {
-      toast.error('Il peso deve essere tra 30 e 300 kg');
-      return;
-    }
-    
-    if (targetWeight < 30 || targetWeight > 300) {
-      toast.error('Il peso obiettivo deve essere tra 30 e 300 kg');
+    if (!nutritionPlan) {
+      toast.error('Errore nel calcolo del piano nutrizionale');
       return;
     }
     
     setLoading(true);
     try {
-      const dailyNeeds = calculateDailyNeeds();
+      // Debug log per vedere i valori inviati
+      console.log('=== DEBUG PROFILE UPDATE ===');
+      console.log('Activity level value:', formData.activity_level);
+      console.log('Activity level type:', typeof formData.activity_level);
+      console.log('Activity level length:', formData.activity_level?.length);
+      console.log('Activity level char codes:', formData.activity_level?.split('').map(c => c.charCodeAt(0)));
+      console.log('Goal value:', formData.goal);
+      console.log('Form data:', JSON.stringify(formData, null, 2));
+      console.log('===========================');
       
+      // Pulizia e validazione dei valori prima dell'invio
+      const cleanActivityLevel = formData.activity_level?.trim().toLowerCase();
+      const cleanGoal = formData.goal?.trim().toLowerCase();
+      
+      console.log('Cleaned activity_level:', cleanActivityLevel);
+      console.log('Cleaned goal:', cleanGoal);
+      
+      if (!cleanActivityLevel || !['sedentary', 'light', 'moderate', 'active', 'very_active'].includes(cleanActivityLevel)) {
+        console.error('Invalid activity_level:', cleanActivityLevel);
+        toast.error('Livello di attività non valido');
+        return;
+      }
+      
+      if (!cleanGoal || !['lose', 'maintain', 'gain', 'health'].includes(cleanGoal)) {
+        console.error('Invalid goal:', cleanGoal);
+        toast.error('Obiettivo non valido');
+        return;
+      }
+
       const profileData = {
         id: user.id,
-        email: user.email!,
+        email: user.email || '',
         full_name: formData.full_name,
-        age: age,
+        age: parseInt(formData.age),
         gender: formData.gender,
-        height: height,
-        weight: weight,
-        target_weight: targetWeight,
-        timeframe_months: parseInt(formData.timeframe),
-        activity_level: formData.activity_level,
-        goal: formData.goal,
+        height: parseInt(formData.height),
+        weight: parseFloat(formData.weight),
+        target_weight: formData.target_weight ? parseFloat(formData.target_weight) : undefined,
+        timeframe_months: formData.timeframe_months ? parseInt(formData.timeframe_months) : undefined,
+        activity_level: cleanActivityLevel,
+        goal: cleanGoal,
+        training_frequency: parseInt(formData.training_frequency),
         obstacles: formData.obstacles,
         emotional_goals: formData.emotional_goals,
         dietary_restrictions: formData.dietary_restrictions,
         health_conditions: formData.health_conditions,
-        ...dailyNeeds,
+        daily_calories: nutritionPlan.daily_calories,
+        daily_proteins: nutritionPlan.daily_proteins,
+        daily_carbs: nutritionPlan.daily_carbs,
+        daily_fats: nutritionPlan.daily_fats
       };
-      
 
-      
-      await upsertProfile(profileData);
-      
-      // Se c'è un'email dell'amico, salvala per l'invito
-      if (formData.friend_email) {
-        // Qui potresti salvare l'invito in una tabella dedicata
+      console.log('Final profile data being sent:', JSON.stringify(profileData, null, 2));
 
+      if (profile) {
+        // Aggiorna profilo esistente usando upsert
+        await upsertProfile(profileData);
+        toast.success('Profilo aggiornato con successo!');
+        
+        // Emetti evento per aggiornare la dashboard
+        console.log('Onboarding: Emitting profile-updated event');
+        window.dispatchEvent(new CustomEvent('profile-updated'));
+        
+        // Naviga alla dashboard solo se l'aggiornamento è riuscito
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 100);
+      } else {
+        // Crea nuovo profilo
+        await createProfile(profileData);
+        toast.success('Profilo creato con successo!');
+        
+        // Emetti evento per aggiornare la dashboard
+        console.log('Onboarding: Emitting profile-updated event (create)');
+        window.dispatchEvent(new CustomEvent('profile-updated'));
+        
+        // Naviga alla dashboard solo se la creazione è riuscita
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 100);
       }
-      
-      toast.success('Profilo creato con successo!');
-      
-      // Piccolo delay per evitare conflitti di caricamento
-      setTimeout(() => {
-        navigate('/');
-      }, 100);
-      
     } catch (error: any) {
-      console.error('Profile creation error:', error);
-      toast.error('Errore nella creazione del profilo');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSkip = async () => {
-    if (!user) {
-      toast.error('Devi essere autenticato per saltare il quiz');
-      navigate('/auth');
-      return;
-    }
-    
-    setLoading(true);
-    try {
-      // Crea un profilo minimo con valori di default
-      const defaultProfile = {
-        id: user.id,
-        email: user.email!,
-        full_name: user.email?.split('@')[0] || 'Utente',
-        age: 25,
-        gender: 'male', // Cambiato da 'other' a 'male' per rispettare il constraint del database
-        height: 170,
-        weight: 70,
-        target_weight: 70,
-        timeframe_months: 6,
-        activity_level: 'moderate',
-        goal: 'maintain',
-        obstacles: ['tempo'],
-        emotional_goals: ['energia'],
-        dietary_restrictions: [],
-        health_conditions: [],
-        daily_calories: 2000,
-        daily_proteins: 150,
-        daily_carbs: 250,
-        daily_fats: 67,
-      };
-      
-      await upsertProfile(defaultProfile);
-      
-      toast.success('Quiz saltato! Puoi completare il tuo profilo più tardi.');
-      
-      // Piccolo delay per evitare conflitti di caricamento
-      setTimeout(() => {
-        navigate('/');
-      }, 100);
-    } catch (error: any) {
-      console.error('Error skipping quiz:', error);
-      toast.error('Errore nel saltare il quiz');
+      console.error('Profile creation/update error:', error);
+      toast.error(profile ? 'Errore nell\'aggiornamento del profilo' : 'Errore nella creazione del profilo');
+      // Non navigare via se c'è un errore
     } finally {
       setLoading(false);
     }
@@ -306,7 +357,7 @@ export function Onboarding() {
         </h2>
         
         <p className="text-xl text-gray-300 max-w-md mx-auto">
-          In {formData.timeframe} {parseInt(formData.timeframe) === 1 ? 'mese' : 'mesi'} puoi trasformare completamente il tuo corpo e la tua vita.
+          In {formData.timeframe_months} {parseInt(formData.timeframe_months) === 1 ? 'mese' : 'mesi'} puoi trasformare completamente il tuo corpo e la tua vita.
         </p>
         
         <div className="grid grid-cols-3 gap-4 mt-8">
@@ -433,22 +484,11 @@ export function Onboarding() {
               <Input
                 id="age"
                 type="number"
-                min="10"
-                max="120"
                 value={formData.age}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                onChange={(e) => {
-                  const value = e.target.value;
-                  // consenti la digitazione libera di cifre (max 3), la validazione avviene al submit
-                  if (value === '' || /^\d{0,3}$/.test(value)) {
-                    setFormData({ ...formData, age: value });
-                  }
-                }}
+                onChange={(e) => setFormData({ ...formData, age: e.target.value })}
                 placeholder="25"
                 className="mt-2 bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500"
               />
-              <p className="text-xs text-gray-500 mt-1">Età tra 10 e 120 anni</p>
             </div>
             
             <div>
@@ -485,21 +525,11 @@ export function Onboarding() {
               <Input
                 id="height"
                 type="number"
-                min="100"
-                max="250"
                 value={formData.height}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '' || /^\d{0,3}$/.test(value)) {
-                    setFormData({ ...formData, height: value });
-                  }
-                }}
+                onChange={(e) => setFormData({ ...formData, height: e.target.value })}
                 placeholder="175"
                 className="mt-2 bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500"
               />
-              <p className="text-xs text-gray-500 mt-1">Altezza tra 100 e 250 cm</p>
             </div>
             
             <div>
@@ -507,21 +537,11 @@ export function Onboarding() {
               <Input
                 id="weight"
                 type="number"
-                min="30"
-                max="300"
                 value={formData.weight}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '' || /^\d{0,3}$/.test(value)) {
-                    setFormData({ ...formData, weight: value });
-                  }
-                }}
+                onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
                 placeholder="70"
                 className="mt-2 bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500"
               />
-              <p className="text-xs text-gray-500 mt-1">Peso tra 30 e 300 kg</p>
             </div>
             
             <div>
@@ -529,21 +549,11 @@ export function Onboarding() {
               <Input
                 id="target_weight"
                 type="number"
-                min="30"
-                max="300"
                 value={formData.target_weight}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (value === '' || /^\d{0,3}$/.test(value)) {
-                    setFormData({ ...formData, target_weight: value });
-                  }
-                }}
+                onChange={(e) => setFormData({ ...formData, target_weight: e.target.value })}
                 placeholder="65"
                 className="mt-2 bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500"
               />
-              <p className="text-xs text-gray-500 mt-1">Peso obiettivo tra 30 e 300 kg</p>
               {formData.weight && formData.target_weight && (
                 <motion.p
                   initial={{ opacity: 0 }}
@@ -553,6 +563,20 @@ export function Onboarding() {
                   Differenza: {getWeightDifference()}kg
                 </motion.p>
               )}
+            </div>
+
+            <div>
+              <Label htmlFor="training_frequency" className="text-gray-300">Giorni di allenamento a settimana</Label>
+              <Input
+                id="training_frequency"
+                type="number"
+                min="0"
+                max="7"
+                value={formData.training_frequency}
+                onChange={(e) => setFormData({ ...formData, training_frequency: e.target.value })}
+                placeholder="3"
+                className="mt-2 bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500"
+              />
             </div>
           </div>
         );
@@ -567,9 +591,9 @@ export function Onboarding() {
                   key={timeframe.value}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  onClick={() => setFormData({ ...formData, timeframe: timeframe.value })}
+                  onClick={() => setFormData({ ...formData, timeframe_months: timeframe.value })}
                   className={`relative overflow-hidden rounded-2xl p-6 transition-all ${
-                    formData.timeframe === timeframe.value
+                    formData.timeframe_months === timeframe.value
                       ? 'ring-2 ring-white/50'
                       : ''
                   }`}
@@ -784,59 +808,85 @@ export function Onboarding() {
       case 10:
         return (
           <div className="space-y-6">
-            <div className="text-center mb-6">
-              <Users className="h-16 w-16 mx-auto mb-4 text-purple-400 drop-shadow-[0_0_20px_rgba(168,85,247,0.5)]" />
-              <h3 className="text-2xl font-bold text-white mb-2">
-                NutriCoach è esclusivo
-              </h3>
-              <p className="text-gray-400">
-                Questa app è disponibile solo su invito. Vuoi invitare un amico?
-              </p>
-            </div>
+            {/* Piano Nutrizionale Calcolato */}
+            {nutritionPlan && (
+              <div className="glass-dark rounded-2xl p-6 mb-6">
+                <div className="text-center mb-4">
+                  <Target className="h-12 w-12 mx-auto mb-3 text-green-400 drop-shadow-[0_0_20px_rgba(34,197,94,0.5)]" />
+                  <h3 className="text-xl font-bold text-white mb-2">
+                    Il Tuo Piano Nutrizionale
+                  </h3>
+                  <p className="text-gray-400">
+                    Basato sui tuoi obiettivi e dati personali
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="text-center p-4 rounded-xl bg-gradient-to-r from-green-500/20 to-green-600/20 border border-green-500/30">
+                    <div className="text-2xl font-bold text-green-400">
+                      {nutritionPlan.daily_calories.toFixed(0)}
+                    </div>
+                    <div className="text-sm text-gray-300">kcal/giorno</div>
+                  </div>
+                  <div className="text-center p-4 rounded-xl bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30">
+                    <div className="text-2xl font-bold text-blue-400">
+                      {getWeightDifference()}
+                    </div>
+                    <div className="text-sm text-gray-300">kg da {formData.goal === 'lose' ? 'perdere' : formData.goal === 'gain' ? 'aumentare' : 'mantenere'}</div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center p-3 rounded-lg bg-gray-800/50">
+                    <div className="text-lg font-bold text-orange-400">
+                      {nutritionPlan.daily_proteins}g
+                    </div>
+                    <div className="text-xs text-gray-400">Proteine</div>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-gray-800/50">
+                    <div className="text-lg font-bold text-yellow-400">
+                      {nutritionPlan.daily_carbs}g
+                    </div>
+                    <div className="text-xs text-gray-400">Carboidrati</div>
+                  </div>
+                  <div className="text-center p-3 rounded-lg bg-gray-800/50">
+                    <div className="text-lg font-bold text-red-400">
+                      {nutritionPlan.daily_fats}g
+                    </div>
+                    <div className="text-xs text-gray-400">Grassi</div>
+                  </div>
+                </div>
+              </div>
+            )}
             
-            <div>
-              <Label htmlFor="friend_email" className="text-gray-300">Email del tuo amico (opzionale)</Label>
-              <Input
-                id="friend_email"
-                type="email"
-                value={formData.friend_email}
-                onChange={(e) => setFormData({ ...formData, friend_email: e.target.value })}
-                placeholder="amico@email.com"
-                className="mt-2 bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-500"
-              />
-              <p className="text-sm text-gray-400 mt-2">
-                <Mail className="inline h-4 w-4 mr-1" />
-                Riceverà un invito esclusivo per unirsi a NutriCoach
+            {/* Sezione Condivisione */}
+            <div className="text-center space-y-4">
+              <div className="glass-dark rounded-2xl p-6">
+                <h4 className="text-lg font-semibold text-white mb-3">
+                  Invita i tuoi amici via WhatsApp
+                </h4>
+                <p className="text-gray-300 mb-4">
+                  Condividi la tua esperienza e aiuta i tuoi amici a iniziare il loro percorso verso una vita più sana
+                </p>
+                
+                <Button
+                  onClick={() => {
+                    const message = encodeURIComponent("Ehilà! Sto usando questa app per il nutrimento, provala e dimmi che ne pensi...\n\nLink app: https://nutricoahc.netlify.app/");
+                    const whatsappUrl = `https://wa.me/?text=${message}`;
+                    window.open(whatsappUrl, '_blank');
+                  }}
+                  className="bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 w-full"
+                  size="lg"
+                >
+                  <MessageCircle className="h-5 w-5 mr-2" />
+                  Condividi su WhatsApp
+                </Button>
+              </div>
+              
+              <p className="text-sm text-gray-400">
+                <MessageCircle className="inline h-4 w-4 mr-1" />
+                Si aprirà WhatsApp con un messaggio predefinito
               </p>
-            </div>
-          </div>
-        );
-      
-      case 11:
-        // Schermata invito WhatsApp
-        const signupLink = `${window.location.origin}/auth?signup=1`;
-        const whatsappText = encodeURIComponent(
-          `Sto usando questa app, secondo me ti piace... fammi sapere poi! ${signupLink}`
-        );
-        const whatsappUrl = `https://wa.me/?text=${whatsappText}`;
-        return (
-          <div className="space-y-6 text-center">
-            <div className="space-y-2">
-              <Users className="h-16 w-16 mx-auto mb-2 text-green-400 drop-shadow-[0_0_20px_rgba(34,197,94,0.5)]" />
-              <h3 className="text-2xl font-bold text-white">Invita un amico</h3>
-              <p className="text-gray-400 max-w-md mx-auto">
-                Invita almeno un amico a cui pensi possa far piacere l'app. Aiuterai lo sviluppo e la diffusione di NutriCoach, te ne siamo grati!
-              </p>
-            </div>
-            <div>
-              <Button
-                onClick={() => window.open(whatsappUrl, '_blank')}
-                className="bg-gradient-to-r from-green-400 to-emerald-500 text-black hover:opacity-90"
-                size="lg"
-              >
-                Invita tramite WhatsApp
-              </Button>
-              <p className="text-xs text-gray-500 mt-3">Il messaggio conterrà il link diretto alla registrazione.</p>
             </div>
           </div>
         );
@@ -851,9 +901,9 @@ export function Onboarding() {
       case 1:
         return formData.full_name && formData.age && formData.gender;
       case 2:
-        return formData.height && formData.weight && formData.target_weight;
+        return formData.height && formData.weight && formData.target_weight && formData.training_frequency;
       case 3:
-        return formData.timeframe;
+        return formData.timeframe_months;
       case 4:
         return formData.activity_level;
       case 5:
@@ -867,9 +917,6 @@ export function Onboarding() {
       case 9:
         return true;
       case 10:
-        return true;
-      case 11:
-        // Schermata invito WhatsApp: permetti di completare senza vincoli
         return true;
       default:
         return false;
@@ -896,25 +943,30 @@ export function Onboarding() {
           <div className="glass-dark rounded-3xl p-8">
             {!showMotivational && !showAppBenefits && (
               <>
-                <div className="mb-8">
-                  <div className="flex items-center justify-between mb-4">
-                    <h1 className="text-3xl font-bold">
-                      <span className="bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-                        Creiamo il tuo profilo
-                      </span>
-                    </h1>
-                    <Button
-                      variant="ghost"
-                      onClick={handleSkip}
-                      disabled={loading}
-                      className="text-gray-400 hover:text-white hover:bg-gray-800/50"
-                    >
-                      <SkipForward className="h-4 w-4 mr-2" />
-                      Salta
-                    </Button>
-                  </div>
+                <div className="mb-8 relative">
+                  {/* Tasto Logout in alto a destra */}
+                  <Button
+                    onClick={handleLogout}
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-0 right-0 text-gray-400 hover:text-white hover:bg-gray-800/50 transition-all"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </Button>
+                  
+                  <h1 className="text-3xl font-bold mb-2">
+                    <span className="bg-gradient-to-r from-green-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
+                      {profile ? 'Aggiorniamo il tuo profilo' : 'Creiamo il tuo profilo'}
+                    </span>
+                  </h1>
                   <p className="text-gray-400">
                     Passo {step} di {totalSteps}
+                    {profile && (
+                      <span className="block text-sm text-green-400 mt-1">
+                        ✓ Profilo esistente caricato
+                      </span>
+                    )}
                   </p>
                   <div className="mt-4 h-2 bg-gray-800 rounded-full overflow-hidden">
                     <motion.div
@@ -944,58 +996,41 @@ export function Onboarding() {
             </AnimatePresence>
             
             {!showMotivational && !showAppBenefits && (
-              <div className="space-y-4 mt-8">
-                {/* Tasto Skip prominente per i primi passi */}
-                {step <= 3 && (
+              <div className="flex justify-between mt-8">
+                <Button
+                  variant="outline"
+                  onClick={() => setStep(step - 1)}
+                  disabled={step === 1}
+                  className="border-gray-700 text-white hover:bg-gray-800"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Indietro
+                </Button>
+                
+                {step < totalSteps ? (
                   <Button
-                    variant="outline"
-                    onClick={handleSkip}
-                    disabled={loading}
-                    className="w-full border-gray-600 text-gray-300 hover:bg-gray-800 hover:text-white"
+                    onClick={() => {
+                      if (step === 8) {
+                        setStep(9);
+                      } else {
+                        setStep(step + 1);
+                      }
+                    }}
+                    disabled={!canProceed()}
+                    className="bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90"
                   >
-                    <SkipForward className="h-4 w-4 mr-2" />
-                    Salta il quiz e vai al dashboard
+                    Avanti
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={!canProceed() || loading}
+                    className="bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90"
+                  >
+                    {loading ? 'Salvataggio...' : (profile ? 'Aggiorna Profilo' : 'Completa')}
                   </Button>
                 )}
-                
-                <div className="flex justify-between">
-                  <Button
-                    variant="outline"
-                    onClick={() => setStep(step - 1)}
-                    disabled={step === 1}
-                    className="border-gray-700 text-white hover:bg-gray-800"
-                  >
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Indietro
-                  </Button>
-                  
-                  {step < totalSteps ? (
-                    <Button
-                      onClick={() => {
-                        if (step === 8) {
-                          setStep(9);
-                        } else if (step === 10) {
-                          setStep(11);
-                        } else {
-                          setStep(step + 1);
-                        }
-                      }}
-                      disabled={!canProceed()}
-                      className="bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90"
-                    >
-                      Avanti
-                      <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleSubmit}
-                      disabled={!canProceed() || loading}
-                      className="bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90"
-                    >
-                      {loading ? 'Salvataggio...' : 'Completa'}
-                    </Button>
-                  )}
-                </div>
               </div>
             )}
           </div>

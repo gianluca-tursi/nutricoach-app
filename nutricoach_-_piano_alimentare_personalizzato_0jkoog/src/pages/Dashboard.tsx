@@ -62,78 +62,190 @@ export function Dashboard() {
     setLoading(true);
     try {
       // Ricarica il profilo solo se non è presente o se richiesto esplicitamente
-      if (!profile) {
+      if (!profile || forceRefresh) {
+        console.log('Dashboard: Fetching profile with forceRefresh:', forceRefresh);
         await fetchProfile(user.id);
+        console.log('Dashboard: Profile fetched, new profile:', get().profile);
       }
       
       const today = format(new Date(), 'yyyy-MM-dd');
       
       // Ricarica sempre gli obiettivi giornalieri
-      const { data: goalData } = await supabase
-        .from('daily_goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('date', today)
-        .single();
-      
-      if (goalData) {
-        setDailyGoal(goalData);
-      } else if (profile) {
-        const newGoal = {
-          user_id: user.id,
-          date: today,
-          target_calories: profile.daily_calories,
-          target_proteins: profile.daily_proteins,
-          target_carbs: profile.daily_carbs,
-          target_fats: profile.daily_fats,
-          consumed_calories: 0,
-          consumed_proteins: 0,
-          consumed_carbs: 0,
-          consumed_fats: 0,
-          water_intake: 0,
-          steps: 0,
-        };
-        
-        const { data } = await supabase
+      try {
+        const { data: goalData, error: goalError } = await supabase
           .from('daily_goals')
-          .insert([newGoal])
-          .select()
-          .single();
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', today)
+          .maybeSingle();
         
-        setDailyGoal(data);
+        if (goalError) {
+          console.warn('Error fetching daily goals:', goalError);
+          // Gestione specifica per errori 406 (Not Acceptable)
+          if (goalError.code === '406' || goalError.message?.includes('406')) {
+            console.warn('406 error - creating local goal');
+            if (profile) {
+              const localGoal = {
+                id: 'local-' + Date.now(),
+                user_id: user.id,
+                date: today,
+                target_calories: profile.daily_calories,
+                target_proteins: profile.daily_proteins,
+                target_carbs: profile.daily_carbs,
+                target_fats: profile.daily_fats,
+                consumed_calories: 0,
+                consumed_proteins: 0,
+                consumed_carbs: 0,
+                consumed_fats: 0,
+                water_intake: 0,
+                steps: 0,
+              };
+              setDailyGoal(localGoal);
+              return; // Esci dalla funzione per evitare ulteriori tentativi
+            }
+          }
+          // Se la tabella non esiste, crea un goal locale
+          if (profile) {
+            const localGoal = {
+              id: 'local-' + Date.now(),
+              user_id: user.id,
+              date: today,
+              target_calories: profile.daily_calories,
+              target_proteins: profile.daily_proteins,
+              target_carbs: profile.daily_carbs,
+              target_fats: profile.daily_fats,
+              consumed_calories: 0,
+              consumed_proteins: 0,
+              consumed_carbs: 0,
+              consumed_fats: 0,
+              water_intake: 0,
+              steps: 0,
+            };
+            setDailyGoal(localGoal);
+          }
+        } else if (goalData) {
+          setDailyGoal(goalData);
+        } else if (profile) {
+          try {
+            const newGoal = {
+              user_id: user.id,
+              date: today,
+              target_calories: profile.daily_calories,
+              target_proteins: profile.daily_proteins,
+              target_carbs: profile.daily_carbs,
+              target_fats: profile.daily_fats,
+              consumed_calories: 0,
+              consumed_proteins: 0,
+              consumed_carbs: 0,
+              consumed_fats: 0,
+              water_intake: 0,
+              steps: 0,
+            };
+            
+            const { data, error: upsertError } = await supabase
+              .from('daily_goals')
+              .upsert([newGoal], { 
+                onConflict: 'user_id,date',
+                ignoreDuplicates: false 
+              })
+              .select()
+              .single();
+            
+            if (upsertError) {
+              console.warn('Error upserting daily goal:', upsertError);
+              // Gestione specifica per errori 406 (Not Acceptable)
+              if (upsertError.code === '406' || upsertError.message?.includes('406')) {
+                console.warn('406 error on upsert - using local goal');
+                setDailyGoal({ ...newGoal, id: 'local-' + Date.now() });
+                return; // Esci dalla funzione per evitare ulteriori tentativi
+              }
+              // Usa il goal locale se l'upsert fallisce
+              setDailyGoal({ ...newGoal, id: 'local-' + Date.now() });
+            } else {
+              setDailyGoal(data);
+            }
+          } catch (insertError) {
+            console.warn('Error creating daily goal:', insertError);
+            // Usa il goal locale se l'inserimento fallisce
+            if (profile) {
+              const localGoal = {
+                id: 'local-' + Date.now(),
+                user_id: user.id,
+                date: today,
+                target_calories: profile.daily_calories,
+                target_proteins: profile.daily_proteins,
+                target_carbs: profile.daily_carbs,
+                target_fats: profile.daily_fats,
+                consumed_calories: 0,
+                consumed_proteins: 0,
+                consumed_carbs: 0,
+                consumed_fats: 0,
+                water_intake: 0,
+                steps: 0,
+              };
+              setDailyGoal(localGoal);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Error with daily goals:', error);
+        // Fallback: crea un goal locale
+        if (profile) {
+          const localGoal = {
+            id: 'local-' + Date.now(),
+            user_id: user.id,
+            date: today,
+            target_calories: profile.daily_calories,
+            target_proteins: profile.daily_proteins,
+            target_carbs: profile.daily_carbs,
+            target_fats: profile.daily_fats,
+            consumed_calories: 0,
+            consumed_proteins: 0,
+            consumed_carbs: 0,
+            consumed_fats: 0,
+            water_intake: 0,
+            steps: 0,
+          };
+          setDailyGoal(localGoal);
+        }
       }
       
       // Ricarica sempre i pasti di oggi
-      
-      // Prima prova a caricare tutti i pasti dell'utente per debug
-      const { data: allMeals, error: allMealsError } = await supabase
-        .from('meals')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('consumed_at', { ascending: false });
-      
-      if (allMealsError) {
-        console.error('Error fetching all meals:', allMealsError);
-      }
-      
-      // Ora carica solo i pasti di oggi
-      // Calcola i limiti del giorno in UTC per allinearsi a consumed_at salvato con toISOString (UTC)
-      const now = new Date();
-      const startUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString();
-      const endUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999)).toISOString();
+      try {
+        // Prima prova a caricare tutti i pasti dell'utente per debug
+        const { data: allMeals, error: allMealsError } = await supabase
+          .from('meals')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('consumed_at', { ascending: false });
+        
+        if (allMealsError) {
+          console.warn('Error fetching all meals:', allMealsError);
+        }
+        
+        // Ora carica solo i pasti di oggi
+        // Calcola i limiti del giorno in UTC per allinearsi a consumed_at salvato con toISOString (UTC)
+        const now = new Date();
+        const startUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)).toISOString();
+        const endUtc = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999)).toISOString();
 
-      const { data: mealsData, error: mealsError } = await supabase
-        .from('meals')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('consumed_at', startUtc)
-        .lte('consumed_at', endUtc)
-        .order('consumed_at', { ascending: false });
-      
-      if (mealsError) {
-        console.error('Error fetching today meals:', mealsError);
-      } else {
-        setTodayMeals(mealsData || []);
+        const { data: mealsData, error: mealsError } = await supabase
+          .from('meals')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('consumed_at', startUtc)
+          .lte('consumed_at', endUtc)
+          .order('consumed_at', { ascending: false });
+        
+        if (mealsError) {
+          console.warn('Error fetching today meals:', mealsError);
+          setTodayMeals([]);
+        } else {
+          setTodayMeals(mealsData || []);
+        }
+      } catch (error) {
+        console.warn('Error with meals:', error);
+        setTodayMeals([]);
       }
     } catch (error) {
       console.error('Error loading data:', error);
@@ -297,13 +409,25 @@ export function Dashboard() {
     loadData();
   }, [loadData]);
 
+
+
   useEffect(() => {
     const handleMealUpdated = () => {
       loadData(true);
     };
 
+    const handleProfileUpdated = () => {
+      console.log('Dashboard: Profile updated event received, reloading data...');
+      loadData(true);
+    };
+
     window.addEventListener('meal-updated', handleMealUpdated);
-    return () => window.removeEventListener('meal-updated', handleMealUpdated);
+    window.addEventListener('profile-updated', handleProfileUpdated);
+    
+    return () => {
+      window.removeEventListener('meal-updated', handleMealUpdated);
+      window.removeEventListener('profile-updated', handleProfileUpdated);
+    };
   }, [loadData]);
 
   if (loading || !profile || !dailyGoal) {

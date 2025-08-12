@@ -23,29 +23,70 @@ export function MealHistory() {
     setLoading(true);
     try {
       // Goals for date
-      const { data: goal } = await supabase
-        .from('daily_goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('date', dayStr)
-        .single();
-      setDailyGoal(goal || null);
+      try {
+        const { data: goal, error: goalError } = await supabase
+          .from('daily_goals')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('date', dayStr)
+          .maybeSingle();
+        
+        if (goalError) {
+          console.warn('Error fetching daily goals for date:', goalError);
+          // Crea un goal temporaneo per date passate senza dati
+          setDailyGoal({
+            id: 'temp-' + Date.now(),
+            user_id: user.id,
+            date: dayStr,
+            target_calories: 2000, // Valore di default
+            target_proteins: 150,
+            target_carbs: 250,
+            target_fats: 65,
+            consumed_calories: 0,
+            consumed_proteins: 0,
+            consumed_carbs: 0,
+            consumed_fats: 0,
+            water_intake: 0,
+            steps: 0,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        } else {
+          setDailyGoal(goal || null);
+        }
+      } catch (error) {
+        console.warn('Error with daily goals query:', error);
+        setDailyGoal(null);
+      }
 
       // Meals for date - usa range UTC per compatibilità con toISOString
-      const startUtc = new Date(Date.UTC(selectedDate.getUTCFullYear(), selectedDate.getUTCMonth(), selectedDate.getUTCDate(), 0, 0, 0, 0)).toISOString();
-      const endUtc = new Date(Date.UTC(selectedDate.getUTCFullYear(), selectedDate.getUTCMonth(), selectedDate.getUTCDate(), 23, 59, 59, 999)).toISOString();
-      const { data: dataMeals, error } = await supabase
-        .from('meals')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('consumed_at', startUtc)
-        .lte('consumed_at', endUtc)
-        .order('consumed_at', { ascending: false });
-      if (error) throw error;
-      setMeals(dataMeals || []);
+      try {
+        const startUtc = new Date(Date.UTC(selectedDate.getUTCFullYear(), selectedDate.getUTCMonth(), selectedDate.getUTCDate(), 0, 0, 0, 0)).toISOString();
+        const endUtc = new Date(Date.UTC(selectedDate.getUTCFullYear(), selectedDate.getUTCMonth(), selectedDate.getUTCDate(), 23, 59, 59, 999)).toISOString();
+        const { data: dataMeals, error: mealsError } = await supabase
+          .from('meals')
+          .select('*')
+          .eq('user_id', user.id)
+          .gte('consumed_at', startUtc)
+          .lte('consumed_at', endUtc)
+          .order('consumed_at', { ascending: false });
+        
+        if (mealsError) {
+          console.warn('Error fetching meals for date:', mealsError);
+          setMeals([]);
+        } else {
+          setMeals(dataMeals || []);
+        }
+      } catch (error) {
+        console.warn('Error with meals query:', error);
+        setMeals([]);
+      }
     } catch (e) {
       console.error('Errore caricamento storico', e);
-      toast.error('Errore nel caricamento dei pasti del giorno');
+      // Non mostrare toast per errori di date passate senza dati
+      if (!e.toString().includes('406')) {
+        toast.error('Errore nel caricamento dei pasti del giorno');
+      }
     } finally {
       setLoading(false);
     }
