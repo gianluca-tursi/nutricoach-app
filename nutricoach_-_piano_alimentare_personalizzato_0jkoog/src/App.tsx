@@ -17,7 +17,6 @@ const Recipes = lazy(() => import('@/pages/Recipes').then(module => ({ default: 
 const Auth = lazy(() => import('@/pages/Auth').then(module => ({ default: module.Auth })));
 const Onboarding = lazy(() => import('@/pages/Onboarding').then(module => ({ default: module.Onboarding })));
 const Setup = lazy(() => import('@/pages/Setup').then(module => ({ default: module.Setup })));
-const Landing = lazy(() => import('@/pages/Landing').then(module => ({ default: module.Landing })));
 
 // Loading component memoizzato
 const LoadingScreen = memo(() => (
@@ -77,8 +76,6 @@ function App() {
       setIsInitialized(true);
     }
   }, [initAuthListener]);
-
-
 
   // Memoizza le condizioni di loading
   const showLoading = useMemo(() => authLoading || !isInitialized, [authLoading, isInitialized]);
@@ -159,14 +156,9 @@ function App() {
     );
   }, [user, profile, profileLoading, profileReady]);
 
-  // Memoizza le rotte pubbliche
+  // Memoizza le rotte pubbliche (solo auth e onboarding)
   const publicRoutes = useMemo(() => (
     <>
-      <Route path="/" element={
-        <Suspense fallback={<PageLoading />}>
-          <Landing />
-        </Suspense>
-      } />
       <Route path="/auth" element={
         !user ? (
           <Suspense fallback={<PageLoading />}>
@@ -184,6 +176,10 @@ function App() {
         ) : (
           <Navigate to="/auth" />
         )
+      } />
+      {/* Reindirizza la root e tutte le altre rotte non gestite */}
+      <Route path="*" element={
+        user ? <Navigate to="/dashboard" /> : <Navigate to="/auth" />
       } />
     </>
   ), [user]);
@@ -291,8 +287,6 @@ function App() {
     userEmail: user?.email,
     profileId: profile?.id
   });
-
-
 
   return (
     <Router>

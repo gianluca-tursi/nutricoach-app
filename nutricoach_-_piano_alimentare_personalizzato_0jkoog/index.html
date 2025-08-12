@@ -6,10 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#000000" />
-    <title>NutriCoach - Piano Alimentare Personalizzato</title>
+    <title>Lumari - Piano Alimentare Personalizzato</title>
     
     <!-- Performance optimizations -->
-    <meta name="description" content="NutriCoach - Il tuo assistente personale per un piano alimentare su misura" />
+    <meta name="description" content="Lumari - Il tuo assistente personale per un piano alimentare su misura" />
     <meta name="robots" content="index, follow" />
     
     <!-- Preconnect to external domains -->
@@ -46,6 +46,14 @@
       }
     </script>
     -->
+    
+    <!-- Auto-redirect to app -->
+    <script>
+      // Reindirizza automaticamente all'app se non siamo già su una rotta specifica
+      if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+        window.location.href = '/app';
+      }
+    </script>
   </head>
   <body>
     <div id="root">
@@ -53,7 +61,7 @@
       <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #000;">
         <div style="text-align: center;">
           <div class="loading-spinner" style="margin: 0 auto 1rem;"></div>
-          <p style="color: #fff; margin: 0;">Caricamento NutriCoach...</p>
+          <p style="color: #fff; margin: 0;">Caricamento Lumari...</p>
         </div>
       </div>
     </div>
