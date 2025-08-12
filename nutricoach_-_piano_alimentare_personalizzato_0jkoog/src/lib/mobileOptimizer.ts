@@ -24,7 +24,8 @@ export class MobileOptimizer {
     // Rileva dispositivi a bassa performance
     const memory = (navigator as any).deviceMemory || 4;
     const cores = (navigator as any).hardwareConcurrency || 4;
-    const isOldDevice = /android [4-7]|iphone os [8-10]|ipad os [8-10]/i.test(userAgent);
+    // Semplifica la rilevazione dispositivi vecchi per evitare problemi di build
+    const isOldDevice = memory < 2 || cores < 2;
     
     this.isLowEndMobile = this.isMobile && (memory < 4 || cores < 4 || isOldDevice);
   }
