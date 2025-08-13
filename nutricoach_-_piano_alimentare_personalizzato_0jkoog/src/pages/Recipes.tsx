@@ -466,6 +466,14 @@ export function Recipes() {
               baseDescription = analysis.description;
             }
             
+            // Se contiene sia descrizione che ingredienti/istruzioni, estrai la parte descrittiva
+            if (desc.includes('ingredienti') || desc.includes('istruzioni')) {
+              const beforeIngredients = analysis.description.split(/ingredienti|istruzioni/i)[0];
+              if (beforeIngredients && beforeIngredients.trim() && !baseDescription) {
+                baseDescription = beforeIngredients.trim();
+              }
+            }
+            
             // Estrai ingredienti
             if (desc.includes('ingredienti') && !hasIngredients) {
               const ingredientsMatch = analysis.description.match(/ingredienti[:\s]*(.*?)(?=istruzioni|$)/is);
@@ -515,6 +523,15 @@ export function Recipes() {
         } catch (error) {
           console.error(`Error analyzing image ${analysisCount + 1}:`, error);
           // Continua con le altre immagini anche se una fallisce
+        }
+      }
+      
+      // Assicurati che la descrizione base sia sempre inclusa
+      if (baseDescription && !combinedAnalysis.description?.includes(baseDescription)) {
+        if (combinedAnalysis.description) {
+          combinedAnalysis.description = baseDescription + '\n\n' + combinedAnalysis.description;
+        } else {
+          combinedAnalysis.description = baseDescription;
         }
       }
       
