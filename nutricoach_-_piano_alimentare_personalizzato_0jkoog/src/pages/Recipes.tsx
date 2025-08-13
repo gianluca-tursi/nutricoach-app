@@ -199,16 +199,35 @@ export function Recipes() {
     const optimizedFile = await optimizeImage(file);
     const fileName = `${user?.id}/${Date.now()}-${file.name}`;
     
-    const { data, error } = await supabase.storage
-      .from('recipe-images')
+    // Prova prima con il bucket recipe-images, se non esiste usa avatars
+    let bucketName = 'recipe-images';
+    let { data, error } = await supabase.storage
+      .from(bucketName)
       .upload(fileName, optimizedFile);
 
+    // Se il bucket recipe-images non esiste, usa avatars
+    if (error && error.message.includes('bucket') || error.message.includes('not found')) {
+      bucketName = 'avatars';
+      ({ data, error } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, optimizedFile));
+    }
+
     if (error) {
-      throw new Error('Errore nel caricamento dell\'immagine');
+      console.error('Storage upload error:', error);
+      if (error.message.includes('bucket') || error.message.includes('not found')) {
+        throw new Error('Bucket di storage non configurato. Contatta l\'amministratore.');
+      } else if (error.message.includes('file size')) {
+        throw new Error('L\'immagine è troppo grande. Riduci le dimensioni.');
+      } else if (error.message.includes('mime type')) {
+        throw new Error('Formato immagine non supportato. Usa JPEG, PNG o WebP.');
+      } else {
+        throw new Error('Errore nel caricamento dell\'immagine: ' + error.message);
+      }
     }
 
     const { data: { publicUrl } } = supabase.storage
-      .from('recipe-images')
+      .from(bucketName)
       .getPublicUrl(fileName);
 
     return publicUrl;
