@@ -20,18 +20,45 @@ CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at DESC);
 -- Enable Row Level Security
 ALTER TABLE recipes ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies
-CREATE POLICY "Users can view their own recipes" ON recipes
-  FOR SELECT USING (auth.uid() = user_id);
+-- Create RLS policies (only if they don't exist)
+DO $$
+BEGIN
+    -- Policy for SELECT
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'recipes' AND policyname = 'Users can view their own recipes'
+    ) THEN
+        CREATE POLICY "Users can view their own recipes" ON recipes
+          FOR SELECT USING (auth.uid() = user_id);
+    END IF;
 
-CREATE POLICY "Users can insert their own recipes" ON recipes
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+    -- Policy for INSERT
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'recipes' AND policyname = 'Users can insert their own recipes'
+    ) THEN
+        CREATE POLICY "Users can insert their own recipes" ON recipes
+          FOR INSERT WITH CHECK (auth.uid() = user_id);
+    END IF;
 
-CREATE POLICY "Users can update their own recipes" ON recipes
-  FOR UPDATE USING (auth.uid() = user_id);
+    -- Policy for UPDATE
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'recipes' AND policyname = 'Users can update their own recipes'
+    ) THEN
+        CREATE POLICY "Users can update their own recipes" ON recipes
+          FOR UPDATE USING (auth.uid() = user_id);
+    END IF;
 
-CREATE POLICY "Users can delete their own recipes" ON recipes
-  FOR DELETE USING (auth.uid() = user_id);
+    -- Policy for DELETE
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'recipes' AND policyname = 'Users can delete their own recipes'
+    ) THEN
+        CREATE POLICY "Users can delete their own recipes" ON recipes
+          FOR DELETE USING (auth.uid() = user_id);
+    END IF;
+END $$;
 
 -- Create function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -43,6 +70,7 @@ END;
 $$ language 'plpgsql';
 
 -- Create trigger to automatically update updated_at
+DROP TRIGGER IF EXISTS update_recipes_updated_at ON recipes;
 CREATE TRIGGER update_recipes_updated_at
   BEFORE UPDATE ON recipes
   FOR EACH ROW

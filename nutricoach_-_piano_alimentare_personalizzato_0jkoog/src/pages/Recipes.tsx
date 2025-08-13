@@ -215,14 +215,18 @@ export function Recipes() {
 
     if (error) {
       console.error('Storage upload error:', error);
-      if (error.message.includes('bucket') || error.message.includes('not found')) {
+      const errorMessage = error.message || error.toString() || 'Errore sconosciuto';
+      
+      if (errorMessage.includes('bucket') || errorMessage.includes('not found')) {
         throw new Error('Bucket di storage non configurato. Contatta l\'amministratore.');
-      } else if (error.message.includes('file size')) {
+      } else if (errorMessage.includes('file size')) {
         throw new Error('L\'immagine è troppo grande. Riduci le dimensioni.');
-      } else if (error.message.includes('mime type')) {
+      } else if (errorMessage.includes('mime type')) {
         throw new Error('Formato immagine non supportato. Usa JPEG, PNG o WebP.');
+      } else if (errorMessage.includes('row-level security') || errorMessage.includes('RLS')) {
+        throw new Error('Errore di permessi. Prova a ricaricare la pagina e riprova.');
       } else {
-        throw new Error('Errore nel caricamento dell\'immagine: ' + error.message);
+        throw new Error('Errore nel caricamento dell\'immagine: ' + errorMessage);
       }
     }
 

@@ -1,7 +1,7 @@
 -- Create recipe-images bucket for storing recipe images
 -- This should be run in the Supabase SQL Editor
 
--- Create the bucket
+-- Create the bucket (this is sufficient for public access)
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 VALUES (
   'recipe-images',
@@ -11,27 +11,54 @@ VALUES (
   ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 ) ON CONFLICT (id) DO NOTHING;
 
--- Create RLS policies for the bucket
-CREATE POLICY "Users can upload their own recipe images" ON storage.objects
-  FOR INSERT WITH CHECK (
-    bucket_id = 'recipe-images' AND 
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
+-- Create RLS policies for the bucket (only if they don't exist)
+DO $$
+BEGIN
+    -- Policy for INSERT (upload)
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'objects' AND policyname = 'Users can upload recipe images'
+    ) THEN
+        CREATE POLICY "Users can upload recipe images" ON storage.objects
+          FOR INSERT WITH CHECK (
+            bucket_id = 'recipe-images' AND 
+            auth.uid()::text = (storage.foldername(name))[1]
+          );
+    END IF;
 
-CREATE POLICY "Users can view all recipe images" ON storage.objects
-  FOR SELECT USING (bucket_id = 'recipe-images');
+    -- Policy for SELECT (view)
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'objects' AND policyname = 'Users can view recipe images'
+    ) THEN
+        CREATE POLICY "Users can view recipe images" ON storage.objects
+          FOR SELECT USING (bucket_id = 'recipe-images');
+    END IF;
 
-CREATE POLICY "Users can update their own recipe images" ON storage.objects
-  FOR UPDATE USING (
-    bucket_id = 'recipe-images' AND 
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
+    -- Policy for UPDATE
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'objects' AND policyname = 'Users can update recipe images'
+    ) THEN
+        CREATE POLICY "Users can update recipe images" ON storage.objects
+          FOR UPDATE USING (
+            bucket_id = 'recipe-images' AND 
+            auth.uid()::text = (storage.foldername(name))[1]
+          );
+    END IF;
 
-CREATE POLICY "Users can delete their own recipe images" ON storage.objects
-  FOR DELETE USING (
-    bucket_id = 'recipe-images' AND 
-    auth.uid()::text = (storage.foldername(name))[1]
-  );
+    -- Policy for DELETE
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE tablename = 'objects' AND policyname = 'Users can delete recipe images'
+    ) THEN
+        CREATE POLICY "Users can delete recipe images" ON storage.objects
+          FOR DELETE USING (
+            bucket_id = 'recipe-images' AND 
+            auth.uid()::text = (storage.foldername(name))[1]
+          );
+    END IF;
+END $$;
 
--- Add comment
-COMMENT ON TABLE storage.objects IS 'Recipe images stored in recipe-images bucket';
+-- Note: RLS policies are automatically handled by Supabase for public buckets
+-- Users can upload, view, and manage their own files through the Supabase client
