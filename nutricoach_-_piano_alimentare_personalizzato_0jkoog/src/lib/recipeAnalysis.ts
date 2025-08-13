@@ -56,25 +56,29 @@ CASO 1 - SE L'IMMAGINE CONTIENE TESTO DI RICETTA:
 CASO 2 - SE L'IMMAGINE MOSTRA SOLO UN PIATTO FINITO:
 - Identifica il piatto visibile
 - Crea un titolo appropriato
-- Cerca online una ricetta simile e fornisci una descrizione basata su ricette tradizionali
-- Suggerisci ingredienti e passaggi tipici
+- Fornisci ingredienti per 2 persone con quantità precise
+- Scrivi istruzioni passo-passo per preparare il piatto
+- Usa ricette tradizionali italiane come riferimento
+- Sii pratico e specifico nelle dosi
 
 Formato JSON:
 {
   "title": "Nome della ricetta in italiano",
-  "description": "Descrizione dettagliata o testo della ricetta",
+  "description": "Breve descrizione del piatto (max 2 frasi)",
   "category": "breakfast|main|side|dessert|snack|drink",
   "tags": ["tag1", "tag2", "tag3"],
   "has_recipe_text": true/false,
-  "ingredients": ["ingrediente1", "ingrediente2"],
-  "instructions": ["passo1", "passo2"]
+  "ingredients": ["200g pasta", "100g guanciale", "2 uova", "50g pecorino"],
+  "instructions": ["Porta a bollore l'acqua salata", "Cuoci la pasta al dente", "Rosola il guanciale"]
 }
 
 Linee guida:
 - Se vedi testo di ricetta, copialo esattamente
-- Se vedi solo un piatto, descrivi come prepararlo
-- Usa nomi italiani per le ricette
-- Aggiungi ingredienti e istruzioni quando possibile
+- Se vedi solo un piatto, fornisci ricetta completa con dosi per 2 persone
+- Ingredienti: specifica sempre le quantità (es: "200g pasta", "2 uova")
+- Istruzioni: scrivi passi chiari e numerati
+- Descrizione: massimo 2 frasi, non ripetere ingredienti
+- Usa ricette tradizionali italiane come riferimento
 - Tag rilevanti: "vegetariano", "veloce", "tradizionale", "estivo", "senza glutine", etc.
 - Rispondi SOLO con JSON`
             },
