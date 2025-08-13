@@ -417,16 +417,22 @@ export function Recipes() {
       
       console.log('Descrizione finale:', fullDescription);
       
-      setNewRecipe(prev => ({
-        ...prev,
-        title: analysis.title || prev.title,
-        description: fullDescription,
-        category: analysis.category || prev.category,
-        tags: analysis.tags || prev.tags,
-        ingredients: analysis.ingredients || prev.ingredients,
-        instructions: analysis.instructions || prev.instructions,
-        has_recipe_text: analysis.has_recipe_text || prev.has_recipe_text
-      }));
+      setNewRecipe(prev => {
+        // Assicurati che tutti i campi siano presenti
+        const updatedRecipe = {
+          ...prev,
+          title: analysis.title || prev.title,
+          description: fullDescription,
+          category: analysis.category || prev.category,
+          tags: analysis.tags || prev.tags,
+          ingredients: analysis.ingredients || prev.ingredients || [],
+          instructions: analysis.instructions || prev.instructions || [],
+          has_recipe_text: analysis.has_recipe_text !== undefined ? analysis.has_recipe_text : prev.has_recipe_text
+        };
+        
+        console.log('Recipe aggiornata:', updatedRecipe);
+        return updatedRecipe;
+      });
       
       toast({
         title: 'Analisi completata',
