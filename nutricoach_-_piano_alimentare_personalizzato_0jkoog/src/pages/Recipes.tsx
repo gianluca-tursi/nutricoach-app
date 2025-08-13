@@ -34,8 +34,6 @@ import { useToast } from '@/hooks/use-toast';
     user_id: string;
     created_at: string;
     tags: string[];
-    ingredients?: string[];
-    instructions?: string[];
     has_recipe_text?: boolean;
   }
 
@@ -54,8 +52,6 @@ export function Recipes() {
     description: '',
     category: 'main',
     tags: [],
-    ingredients: [],
-    instructions: [],
     has_recipe_text: false
   });
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -372,8 +368,6 @@ export function Recipes() {
       description: '',
       category: 'main',
       tags: [],
-      ingredients: [],
-      instructions: [],
       has_recipe_text: false
     });
     setSelectedImage(null);
@@ -394,45 +388,10 @@ export function Recipes() {
       // Poi analizza con AI
       const analysis = await analyzeImageWithAI(imageUrl);
       
-      console.log('Analisi AI ricevuta:', analysis);
-      console.log('Ingredienti:', analysis.ingredients);
-      console.log('Istruzioni:', analysis.instructions);
-      
-      // Crea una descrizione completa con ingredienti e istruzioni
-      let fullDescription = analysis.description || '';
-      
-      if (analysis.ingredients && analysis.ingredients.length > 0) {
-        console.log('Aggiungendo ingredienti alla descrizione');
-        fullDescription += '\n\n**INGREDIENTI:**\n' + analysis.ingredients.map(ing => `• ${ing}`).join('\n');
-      } else {
-        console.log('Nessun ingrediente trovato');
-      }
-      
-      if (analysis.instructions && analysis.instructions.length > 0) {
-        console.log('Aggiungendo istruzioni alla descrizione');
-        fullDescription += '\n\n**ISTRUZIONI:**\n' + analysis.instructions.map((inst, index) => `${index + 1}. ${inst}`).join('\n');
-      } else {
-        console.log('Nessuna istruzione trovata');
-      }
-      
-      console.log('Descrizione finale:', fullDescription);
-      
-      setNewRecipe(prev => {
-        // Assicurati che tutti i campi siano presenti
-        const updatedRecipe = {
-          ...prev,
-          title: analysis.title || prev.title,
-          description: fullDescription,
-          category: analysis.category || prev.category,
-          tags: analysis.tags || prev.tags,
-          ingredients: analysis.ingredients || prev.ingredients || [],
-          instructions: analysis.instructions || prev.instructions || [],
-          has_recipe_text: analysis.has_recipe_text !== undefined ? analysis.has_recipe_text : prev.has_recipe_text
-        };
-        
-        console.log('Recipe aggiornata:', updatedRecipe);
-        return updatedRecipe;
-      });
+      setNewRecipe(prev => ({
+        ...prev,
+        ...analysis
+      }));
       
       toast({
         title: 'Analisi completata',

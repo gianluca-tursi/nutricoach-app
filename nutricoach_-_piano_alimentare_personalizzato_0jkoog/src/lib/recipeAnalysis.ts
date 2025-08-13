@@ -140,8 +140,28 @@ Linee guida:
         result.has_recipe_text = result.ingredients.length > 0 || result.instructions.length > 0;
       }
       
-      console.log('Analisi AI completata:', result);
-      return result;
+      // Crea una descrizione completa con ingredienti e istruzioni
+      let fullDescription = result.description || '';
+      
+      if (result.ingredients && result.ingredients.length > 0) {
+        fullDescription += '\n\n**INGREDIENTI:**\n' + result.ingredients.map(ing => `• ${ing}`).join('\n');
+      }
+      
+      if (result.instructions && result.instructions.length > 0) {
+        fullDescription += '\n\n**ISTRUZIONI:**\n' + result.instructions.map((inst, index) => `${index + 1}. ${inst}`).join('\n');
+      }
+      
+      // Ritorna solo i campi base con la descrizione completa
+      const finalResult = {
+        title: result.title,
+        description: fullDescription,
+        category: result.category,
+        tags: result.tags || [],
+        has_recipe_text: result.has_recipe_text || false
+      };
+      
+      console.log('Analisi AI completata:', finalResult);
+      return finalResult;
     } catch (parseError) {
       console.error('Errore parsing JSON:', parseError);
       console.error('Tentativo di parsing:', jsonMatch[0]);
@@ -246,13 +266,16 @@ async function simulateRecipeAnalysis(imageUrl: string): Promise<RecipeAnalysis>
     "Servi subito con un'altra spolverata di pecorino e pepe nero"
   ];
   
+  // Crea una descrizione completa con ingredienti e istruzioni
+  let fullDescription = possibleDescriptions[descIndex];
+  fullDescription += '\n\n**INGREDIENTI:**\n' + ingredients.map(ing => `• ${ing}`).join('\n');
+  fullDescription += '\n\n**ISTRUZIONI:**\n' + instructions.map((inst, index) => `${index + 1}. ${inst}`).join('\n');
+  
   return {
     title: possibleTitles[titleIndex],
-    description: possibleDescriptions[descIndex],
+    description: fullDescription,
     category: categories[categoryIndex],
     tags: selectedTags,
-    ingredients: ingredients,
-    instructions: instructions,
     has_recipe_text: false
   };
 }
