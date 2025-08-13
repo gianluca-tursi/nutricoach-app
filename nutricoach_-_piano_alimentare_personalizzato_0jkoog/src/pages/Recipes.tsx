@@ -295,7 +295,7 @@ export function Recipes() {
       const recipeData = {
         ...newRecipe,
         user_id: user.id,
-        image_url: imageUrl || null
+        image_url: imageUrl || newRecipe.image_url || null
       };
 
       if (isEditing && selectedRecipe) {
@@ -833,6 +833,10 @@ export function Recipes() {
                     setIsEditing(true);
                     setShowViewDialog(false);
                     setShowAddDialog(true);
+                    // Imposta la preview dell'immagine esistente
+                    if (selectedRecipe.image_url) {
+                      setImagePreview(selectedRecipe.image_url);
+                    }
                   }
                 }}
                 className="bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90"
