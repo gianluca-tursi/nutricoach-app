@@ -196,45 +196,76 @@ export function Recipes() {
   };
 
   const uploadImage = async (file: File): Promise<string> => {
-    const optimizedFile = await optimizeImage(file);
-    const fileName = `${user?.id}/${Date.now()}-${file.name}`;
-    
-    // Prova prima con il bucket recipe-images, se non esiste usa avatars
-    let bucketName = 'recipe-images';
-    let { data, error } = await supabase.storage
-      .from(bucketName)
-      .upload(fileName, optimizedFile);
-
-    // Se il bucket recipe-images non esiste, usa avatars
-    if (error && error.message.includes('bucket') || error.message.includes('not found')) {
-      bucketName = 'avatars';
-      ({ data, error } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, optimizedFile));
-    }
-
-    if (error) {
-      console.error('Storage upload error:', error);
-      const errorMessage = error.message || error.toString() || 'Errore sconosciuto';
+    try {
+      const optimizedFile = await optimizeImage(file);
+      const fileName = `${user?.id}/${Date.now()}-${file.name}`;
       
-      if (errorMessage.includes('bucket') || errorMessage.includes('not found')) {
-        throw new Error('Bucket di storage non configurato. Contatta l\'amministratore.');
-      } else if (errorMessage.includes('file size')) {
-        throw new Error('L\'immagine è troppo grande. Riduci le dimensioni.');
-      } else if (errorMessage.includes('mime type')) {
-        throw new Error('Formato immagine non supportato. Usa JPEG, PNG o WebP.');
-      } else if (errorMessage.includes('row-level security') || errorMessage.includes('RLS')) {
-        throw new Error('Errore di permessi. Prova a ricaricare la pagina e riprova.');
-      } else {
-        throw new Error('Errore nel caricamento dell\'immagine: ' + errorMessage);
+      console.log('Attempting upload to recipe-images bucket...');
+      
+      // Prova prima con il bucket recipe-images
+      let { data, error } = await supabase.storage
+        .from('recipe-images')
+        .upload(fileName, optimizedFile);
+
+      console.log('Upload result:', { data, error });
+
+      // Se c'è un errore, prova con avatars
+      if (error) {
+        console.log('Recipe-images bucket failed, trying avatars...');
+        ({ data, error } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, optimizedFile));
+        
+        console.log('Avatars upload result:', { data, error });
       }
+
+      if (error) {
+        console.error('Storage upload error:', error);
+        console.error('Error type:', typeof error);
+        console.error('Error keys:', Object.keys(error || {}));
+        
+        let errorMessage = 'Errore sconosciuto';
+        
+        if (error && typeof error === 'object') {
+          if (error.message) {
+            errorMessage = error.message;
+          } else if (error.toString) {
+            errorMessage = error.toString();
+          } else {
+            errorMessage = JSON.stringify(error);
+          }
+        }
+        
+        console.error('Processed error message:', errorMessage);
+        
+        if (errorMessage.includes('bucket') || errorMessage.includes('not found')) {
+          throw new Error('Bucket di storage non configurato. Contatta l\'amministratore.');
+        } else if (errorMessage.includes('file size')) {
+          throw new Error('L\'immagine è troppo grande. Riduci le dimensioni.');
+        } else if (errorMessage.includes('mime type')) {
+          throw new Error('Formato immagine non supportato. Usa JPEG, PNG o WebP.');
+        } else if (errorMessage.includes('row-level security') || errorMessage.includes('RLS')) {
+          throw new Error('Errore di permessi. Prova a ricaricare la pagina e riprova.');
+        } else {
+          throw new Error('Errore nel caricamento dell\'immagine: ' + errorMessage);
+        }
+      }
+
+      if (!data) {
+        throw new Error('Nessun dato ricevuto dal server');
+      }
+
+      const bucketName = error ? 'avatars' : 'recipe-images';
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(fileName);
+
+      console.log('Upload successful, public URL:', publicUrl);
+      return publicUrl;
+    } catch (err) {
+      console.error('Upload function error:', err);
+      throw err;
     }
-
-    const { data: { publicUrl } } = supabase.storage
-      .from(bucketName)
-      .getPublicUrl(fileName);
-
-    return publicUrl;
   };
 
   const addRecipe = async () => {
