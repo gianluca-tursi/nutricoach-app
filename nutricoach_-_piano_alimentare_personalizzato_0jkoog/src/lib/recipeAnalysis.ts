@@ -11,6 +11,9 @@ export interface RecipeAnalysis {
   description: string;
   category: string;
   tags: string[];
+  has_recipe_text?: boolean;
+  ingredients?: string[];
+  instructions?: string[];
 }
 
 export async function analyzeRecipeImage(imageUrl: string): Promise<RecipeAnalysis> {
@@ -40,24 +43,39 @@ export async function analyzeRecipeImage(imageUrl: string): Promise<RecipeAnalys
           content: [
             {
               type: "text",
-              text: `Analizza questa immagine di una ricetta e fornisci informazioni dettagliate in formato JSON.
+              text: `Analizza questa immagine e fornisci informazioni dettagliate in formato JSON.
 
 IMPORTANTE: Rispondi SOLO con JSON valido, nessun altro testo.
+
+CASO 1 - SE L'IMMAGINE CONTIENE TESTO DI RICETTA:
+- Leggi tutto il testo della ricetta visibile
+- Estrai il titolo della ricetta
+- Copia la descrizione/istruzioni esattamente come appaiono nel testo
+- Identifica la categoria basandoti sul tipo di piatto
+
+CASO 2 - SE L'IMMAGINE MOSTRA SOLO UN PIATTO FINITO:
+- Identifica il piatto visibile
+- Crea un titolo appropriato
+- Cerca online una ricetta simile e fornisci una descrizione basata su ricette tradizionali
+- Suggerisci ingredienti e passaggi tipici
 
 Formato JSON:
 {
   "title": "Nome della ricetta in italiano",
-  "description": "Descrizione breve della ricetta",
+  "description": "Descrizione dettagliata o testo della ricetta",
   "category": "breakfast|main|side|dessert|snack|drink",
-  "tags": ["tag1", "tag2", "tag3"]
+  "tags": ["tag1", "tag2", "tag3"],
+  "has_recipe_text": true/false,
+  "ingredients": ["ingrediente1", "ingrediente2"],
+  "instructions": ["passo1", "passo2"]
 }
 
 Linee guida:
-- Analizza gli ingredienti e il tipo di piatto visibili nell'immagine
+- Se vedi testo di ricetta, copialo esattamente
+- Se vedi solo un piatto, descrivi come prepararlo
 - Usa nomi italiani per le ricette
-- Scegli la categoria più appropriata
-- Aggiungi tag rilevanti (es: "vegetariano", "veloce", "tradizionale", "estivo")
-- Se l'immagine non è chiara, fai la migliore stima possibile
+- Aggiungi ingredienti e istruzioni quando possibile
+- Tag rilevanti: "vegetariano", "veloce", "tradizionale", "estivo", "senza glutine", etc.
 - Rispondi SOLO con JSON`
             },
             {
@@ -69,7 +87,7 @@ Linee guida:
           ],
         },
       ],
-      max_tokens: 500,
+      max_tokens: 1000,
     });
 
     const content = response.choices[0]?.message?.content;
@@ -102,6 +120,20 @@ Linee guida:
       // Assicurati che i tag siano un array
       if (!Array.isArray(result.tags)) {
         result.tags = [];
+      }
+      
+      // Assicurati che ingredienti e istruzioni siano array
+      if (!Array.isArray(result.ingredients)) {
+        result.ingredients = [];
+      }
+      
+      if (!Array.isArray(result.instructions)) {
+        result.instructions = [];
+      }
+      
+      // Imposta has_recipe_text se non presente
+      if (result.has_recipe_text === undefined) {
+        result.has_recipe_text = result.ingredients.length > 0 || result.instructions.length > 0;
       }
       
       console.log('Analisi AI completata:', result);

@@ -19,21 +19,25 @@ import {
   Upload,
   Image as ImageIcon,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Eye
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-interface Recipe {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  image_url?: string;
-  external_link?: string;
-  user_id: string;
-  created_at: string;
-  tags: string[];
-}
+  interface Recipe {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    image_url?: string;
+    external_link?: string;
+    user_id: string;
+    created_at: string;
+    tags: string[];
+    ingredients?: string[];
+    instructions?: string[];
+    has_recipe_text?: boolean;
+  }
 
 export function Recipes() {
   const { user } = useAuthStore();
@@ -43,11 +47,16 @@ export function Recipes() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [newRecipe, setNewRecipe] = useState<Partial<Recipe>>({
     title: '',
     description: '',
     category: 'main',
-    tags: []
+    tags: [],
+    ingredients: [],
+    instructions: [],
+    has_recipe_text: false
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const [analyzingImage, setAnalyzingImage] = useState(false);
@@ -362,7 +371,10 @@ export function Recipes() {
       title: '',
       description: '',
       category: 'main',
-      tags: []
+      tags: [],
+      ingredients: [],
+      instructions: [],
+      has_recipe_text: false
     });
     setSelectedImage(null);
     setImagePreview('');
@@ -403,6 +415,11 @@ export function Recipes() {
     }
   };
 
+  const handleViewRecipe = (recipe: Recipe) => {
+    setSelectedRecipe(recipe);
+    setShowViewDialog(true);
+  };
+
   const filteredRecipes = recipes.filter(recipe => {
     const matchesSearch = recipe.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          recipe.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -413,6 +430,92 @@ export function Recipes() {
   const getCategoryLabel = (category: string) => {
     return categories.find(c => c.value === category)?.label || category;
   };
+
+  // Componente per visualizzare una ricetta
+  const RecipeView = ({ recipe }: { recipe: Recipe }) => (
+    <div className="space-y-6">
+      {/* Immagine */}
+      {recipe.image_url && (
+        <div className="relative">
+          <img 
+            src={recipe.image_url} 
+            alt={recipe.title}
+            className="w-full h-64 object-cover rounded-lg"
+          />
+          <div className="absolute top-2 right-2">
+            <Badge variant="secondary" className="bg-black/70 text-white">
+              {getCategoryLabel(recipe.category)}
+            </Badge>
+          </div>
+        </div>
+      )}
+
+      {/* Titolo e descrizione */}
+      <div>
+        <h2 className="text-2xl font-bold mb-2">{recipe.title}</h2>
+        <p className="text-gray-300 mb-4">{recipe.description}</p>
+      </div>
+
+      {/* Tag */}
+      {recipe.tags && recipe.tags.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Tag</h3>
+          <div className="flex flex-wrap gap-2">
+            {recipe.tags.map((tag, index) => (
+              <Badge key={index} variant="outline" className="text-green-400 border-green-400">
+                {tag}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Ingredienti */}
+      {recipe.ingredients && recipe.ingredients.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Ingredienti</h3>
+          <ul className="list-disc list-inside space-y-1 text-gray-300">
+            {recipe.ingredients.map((ingredient, index) => (
+              <li key={index}>{ingredient}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Istruzioni */}
+      {recipe.instructions && recipe.instructions.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Istruzioni</h3>
+          <ol className="list-decimal list-inside space-y-2 text-gray-300">
+            {recipe.instructions.map((instruction, index) => (
+              <li key={index}>{instruction}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {/* Link esterno */}
+      {recipe.external_link && (
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Link esterno</h3>
+          <a 
+            href={recipe.external_link} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-green-400 hover:text-green-300 flex items-center gap-2"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Apri ricetta originale
+          </a>
+        </div>
+      )}
+
+      {/* Data creazione */}
+      <div className="text-sm text-gray-500">
+        Creata il: {new Date(recipe.created_at).toLocaleDateString('it-IT')}
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -653,14 +756,24 @@ export function Recipes() {
                             )}
                           </div>
                         </div>
-                        <Button
-                          onClick={() => deleteRecipe(recipe.id)}
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            onClick={() => handleViewRecipe(recipe)}
+                            variant="ghost"
+                            size="sm"
+                            className="text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            onClick={() => deleteRecipe(recipe.id)}
+                            variant="ghost"
+                            size="sm"
+                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -691,6 +804,24 @@ export function Recipes() {
             </AnimatePresence>
           </div>
         )}
+
+        {/* Dialog per visualizzare ricetta */}
+        <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-900 border-gray-700">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Dettagli Ricetta</DialogTitle>
+            </DialogHeader>
+            {selectedRecipe && <RecipeView recipe={selectedRecipe} />}
+            <div className="flex justify-end pt-4">
+              <Button
+                onClick={() => setShowViewDialog(false)}
+                variant="outline"
+              >
+                Chiudi
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
