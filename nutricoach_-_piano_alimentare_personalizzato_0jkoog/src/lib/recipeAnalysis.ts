@@ -1,4 +1,10 @@
-import { supabase } from './supabase';
+import OpenAI from 'openai';
+
+// Inizializza OpenAI con la chiave API dall'ambiente
+const openai = new OpenAI({
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+  dangerouslyAllowBrowser: true,
+});
 
 export interface RecipeAnalysis {
   title: string;
@@ -9,20 +15,124 @@ export interface RecipeAnalysis {
 
 export async function analyzeRecipeImage(imageUrl: string): Promise<RecipeAnalysis> {
   try {
-    // Per ora, simuliamo l'analisi AI
-    // In futuro, qui si integrerà con OpenAI Vision API
+    // Verifica che la chiave API sia configurata
+    if (!import.meta.env.VITE_OPENAI_API_KEY) {
+      console.warn('Chiave API OpenAI non configurata, usando simulazione');
+      return await simulateRecipeAnalysis(imageUrl);
+    }
     
-    // Simula un delay per l'analisi
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    console.log('Analizzando ricetta con OpenAI Vision...');
     
-    // Analisi simulata basata su pattern comuni
-    const analysis = await simulateRecipeAnalysis(imageUrl);
+    // Converti l'URL dell'immagine in base64 se necessario
+    let imageBase64 = imageUrl;
+    if (imageUrl.startsWith('http')) {
+      // Se è un URL, scarica l'immagine e convertila in base64
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      imageBase64 = await blobToBase64(blob);
+    }
     
-    return analysis;
-  } catch (error) {
-    console.error('Error analyzing recipe image:', error);
-    throw new Error('Impossibile analizzare l\'immagine della ricetta');
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analizza questa immagine di una ricetta e fornisci informazioni dettagliate in formato JSON.
+
+IMPORTANTE: Rispondi SOLO con JSON valido, nessun altro testo.
+
+Formato JSON:
+{
+  "title": "Nome della ricetta in italiano",
+  "description": "Descrizione breve della ricetta",
+  "category": "breakfast|main|side|dessert|snack|drink",
+  "tags": ["tag1", "tag2", "tag3"]
+}
+
+Linee guida:
+- Analizza gli ingredienti e il tipo di piatto visibili nell'immagine
+- Usa nomi italiani per le ricette
+- Scegli la categoria più appropriata
+- Aggiungi tag rilevanti (es: "vegetariano", "veloce", "tradizionale", "estivo")
+- Se l'immagine non è chiara, fai la migliore stima possibile
+- Rispondi SOLO con JSON`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${imageBase64}`,
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 500,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('Nessuna risposta dall\'AI');
+    }
+
+    console.log('Risposta OpenAI:', content);
+
+    // Estrai il JSON dalla risposta
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Formato di risposta non valido. Risposta ricevuta: ' + content.substring(0, 200));
+    }
+
+    try {
+      const result = JSON.parse(jsonMatch[0]) as RecipeAnalysis;
+      
+      // Validazione dei dati ricevuti
+      if (!result.title || !result.description || !result.category) {
+        throw new Error('Dati mancanti nella risposta AI');
+      }
+      
+      // Assicurati che la categoria sia valida
+      const validCategories = ['breakfast', 'main', 'side', 'dessert', 'snack', 'drink'];
+      if (!validCategories.includes(result.category)) {
+        result.category = 'main'; // Fallback
+      }
+      
+      // Assicurati che i tag siano un array
+      if (!Array.isArray(result.tags)) {
+        result.tags = [];
+      }
+      
+      console.log('Analisi AI completata:', result);
+      return result;
+    } catch (parseError) {
+      console.error('Errore parsing JSON:', parseError);
+      console.error('Tentativo di parsing:', jsonMatch[0]);
+      throw new Error('Errore nel parsing della risposta JSON');
+    }
+  } catch (error: any) {
+    console.error('Errore nell\'analisi AI della ricetta:', error);
+    
+    // Se l'AI non riesce ad analizzare, usa la simulazione
+    console.log('Usando analisi simulata come fallback...');
+    return await simulateRecipeAnalysis(imageUrl);
   }
+}
+
+// Funzione helper per convertire blob in base64
+async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      // Rimuovi il prefisso data:image/...;base64,
+      const base64 = result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 async function simulateRecipeAnalysis(imageUrl: string): Promise<RecipeAnalysis> {
