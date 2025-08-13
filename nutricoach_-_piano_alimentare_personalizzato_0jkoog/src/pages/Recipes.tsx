@@ -394,9 +394,26 @@ export function Recipes() {
       // Poi analizza con AI
       const analysis = await analyzeImageWithAI(imageUrl);
       
+      // Crea una descrizione completa con ingredienti e istruzioni
+      let fullDescription = analysis.description || '';
+      
+      if (analysis.ingredients && analysis.ingredients.length > 0) {
+        fullDescription += '\n\n**INGREDIENTI:**\n' + analysis.ingredients.map(ing => `• ${ing}`).join('\n');
+      }
+      
+      if (analysis.instructions && analysis.instructions.length > 0) {
+        fullDescription += '\n\n**ISTRUZIONI:**\n' + analysis.instructions.map((inst, index) => `${index + 1}. ${inst}`).join('\n');
+      }
+      
       setNewRecipe(prev => ({
         ...prev,
-        ...analysis
+        title: analysis.title || prev.title,
+        description: fullDescription,
+        category: analysis.category || prev.category,
+        tags: analysis.tags || prev.tags,
+        ingredients: analysis.ingredients || prev.ingredients,
+        instructions: analysis.instructions || prev.instructions,
+        has_recipe_text: analysis.has_recipe_text || prev.has_recipe_text
       }));
       
       toast({
@@ -453,7 +470,14 @@ export function Recipes() {
       {/* Titolo e descrizione */}
       <div>
         <h2 className="text-2xl font-bold mb-2">{recipe.title}</h2>
-        <p className="text-gray-300 mb-4">{recipe.description}</p>
+        <div className="text-gray-300 mb-4 whitespace-pre-line">
+          {recipe.description.split('\n').map((line, index) => {
+            if (line.startsWith('**') && line.endsWith('**')) {
+              return <h3 key={index} className="text-lg font-semibold mt-4 mb-2 text-white">{line.replace(/\*\*/g, '')}</h3>;
+            }
+            return <p key={index} className="mb-1">{line}</p>;
+          })}
+        </div>
       </div>
 
       {/* Tag */}
@@ -470,29 +494,7 @@ export function Recipes() {
         </div>
       )}
 
-      {/* Ingredienti */}
-      {recipe.ingredients && recipe.ingredients.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Ingredienti</h3>
-          <ul className="list-disc list-inside space-y-1 text-gray-300">
-            {recipe.ingredients.map((ingredient, index) => (
-              <li key={index}>{ingredient}</li>
-            ))}
-          </ul>
-        </div>
-      )}
 
-      {/* Istruzioni */}
-      {recipe.instructions && recipe.instructions.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold mb-2">Istruzioni</h3>
-          <ol className="list-decimal list-inside space-y-2 text-gray-300">
-            {recipe.instructions.map((instruction, index) => (
-              <li key={index}>{instruction}</li>
-            ))}
-          </ol>
-        </div>
-      )}
 
       {/* Link esterno */}
       {recipe.external_link && (
