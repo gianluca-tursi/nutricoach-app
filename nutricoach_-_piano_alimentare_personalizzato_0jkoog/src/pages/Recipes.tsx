@@ -394,16 +394,28 @@ export function Recipes() {
       // Poi analizza con AI
       const analysis = await analyzeImageWithAI(imageUrl);
       
+      console.log('Analisi AI ricevuta:', analysis);
+      console.log('Ingredienti:', analysis.ingredients);
+      console.log('Istruzioni:', analysis.instructions);
+      
       // Crea una descrizione completa con ingredienti e istruzioni
       let fullDescription = analysis.description || '';
       
       if (analysis.ingredients && analysis.ingredients.length > 0) {
+        console.log('Aggiungendo ingredienti alla descrizione');
         fullDescription += '\n\n**INGREDIENTI:**\n' + analysis.ingredients.map(ing => `• ${ing}`).join('\n');
+      } else {
+        console.log('Nessun ingrediente trovato');
       }
       
       if (analysis.instructions && analysis.instructions.length > 0) {
+        console.log('Aggiungendo istruzioni alla descrizione');
         fullDescription += '\n\n**ISTRUZIONI:**\n' + analysis.instructions.map((inst, index) => `${index + 1}. ${inst}`).join('\n');
+      } else {
+        console.log('Nessuna istruzione trovata');
       }
+      
+      console.log('Descrizione finale:', fullDescription);
       
       setNewRecipe(prev => ({
         ...prev,

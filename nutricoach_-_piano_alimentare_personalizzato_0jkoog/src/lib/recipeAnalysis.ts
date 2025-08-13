@@ -226,11 +226,34 @@ async function simulateRecipeAnalysis(imageUrl: string): Promise<RecipeAnalysis>
     }
   }
   
+  // Simula ingredienti e istruzioni per Carbonara
+  const ingredients = [
+    "200g spaghetti",
+    "100g guanciale",
+    "2 uova",
+    "50g pecorino romano",
+    "sale",
+    "pepe nero"
+  ];
+  
+  const instructions = [
+    "Porta a bollore abbondante acqua salata in una pentola",
+    "Cuoci gli spaghetti fino a quando saranno al dente",
+    "Nel frattempo, rosola il guanciale in una padella fino a quando è croccante",
+    "Sbatti le uova in una ciotola con il pecorino grattugiato e un pizzico di pepe nero",
+    "Scola la pasta e aggiungila nella padella con il guanciale",
+    "Togli dal fuoco e unisci il mix di uova e pecorino, mescolando velocemente",
+    "Servi subito con un'altra spolverata di pecorino e pepe nero"
+  ];
+  
   return {
     title: possibleTitles[titleIndex],
     description: possibleDescriptions[descIndex],
     category: categories[categoryIndex],
-    tags: selectedTags
+    tags: selectedTags,
+    ingredients: ingredients,
+    instructions: instructions,
+    has_recipe_text: false
   };
 }
 
