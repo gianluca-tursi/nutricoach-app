@@ -440,6 +440,9 @@ export function Recipes() {
     try {
       let combinedAnalysis: Partial<Recipe> = {};
       let analysisCount = 0;
+      let hasIngredients = false;
+      let hasInstructions = false;
+      let baseDescription = '';
 
       // Analizza tutte le immagini e combina i risultati
       for (let i = 0; i < selectedImages.length; i++) {
@@ -456,10 +459,39 @@ export function Recipes() {
           }
           
           if (analysis.description) {
-            if (combinedAnalysis.description) {
-              // Aggiungi la nuova descrizione con un separatore
-              combinedAnalysis.description += '\n\n' + analysis.description;
-            } else {
+            const desc = analysis.description.toLowerCase();
+            
+            // Estrai la descrizione base (prima di ingredienti/istruzioni)
+            if (!baseDescription && !desc.includes('ingredienti') && !desc.includes('istruzioni')) {
+              baseDescription = analysis.description;
+            }
+            
+            // Estrai ingredienti
+            if (desc.includes('ingredienti') && !hasIngredients) {
+              const ingredientsMatch = analysis.description.match(/ingredienti[:\s]*(.*?)(?=istruzioni|$)/is);
+              if (ingredientsMatch) {
+                if (!combinedAnalysis.description) {
+                  combinedAnalysis.description = baseDescription || '';
+                }
+                combinedAnalysis.description += '\n\nINGREDIENTI:\n' + ingredientsMatch[1].trim();
+                hasIngredients = true;
+              }
+            }
+            
+            // Estrai istruzioni
+            if (desc.includes('istruzioni') && !hasInstructions) {
+              const instructionsMatch = analysis.description.match(/istruzioni[:\s]*(.*?)$/is);
+              if (instructionsMatch) {
+                if (!combinedAnalysis.description) {
+                  combinedAnalysis.description = baseDescription || '';
+                }
+                combinedAnalysis.description += '\n\nISTRUZIONI:\n' + instructionsMatch[1].trim();
+                hasInstructions = true;
+              }
+            }
+            
+            // Se non abbiamo ancora una descrizione, usa questa
+            if (!combinedAnalysis.description) {
               combinedAnalysis.description = analysis.description;
             }
           }
