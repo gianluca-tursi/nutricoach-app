@@ -433,98 +433,103 @@ export function Recipes() {
     }
   };
 
-  const handleAnalyzeImage = async () => {
+    const handleAnalyzeImage = async () => {
     if (selectedImages.length === 0) return;
 
     setAnalyzingImage(true);
     try {
       let combinedAnalysis: Partial<Recipe> = {};
-      let analysisCount = 0;
       let hasIngredients = false;
       let hasInstructions = false;
       let baseDescription = '';
 
-      // Analizza tutte le immagini e combina i risultati
-      for (let i = 0; i < selectedImages.length; i++) {
-        const image = selectedImages[i];
-        setAnalyzingImageIndex(i);
+      // Analizza tutte le immagini in parallelo per velocizzare
+      const analysisPromises = selectedImages.map(async (image, index) => {
+        setAnalyzingImageIndex(index);
         
         try {
           const imageUrl = await uploadImage(image);
           const analysis = await analyzeImageWithAI(imageUrl);
-          
-          // Combina le informazioni dalle diverse immagini
-          if (analysis.title && !combinedAnalysis.title) {
-            combinedAnalysis.title = analysis.title;
-          }
-          
-          if (analysis.description) {
-            const desc = analysis.description.toLowerCase();
-            
-            // Estrai la descrizione base (prima di ingredienti/istruzioni)
-            if (!baseDescription && !desc.includes('ingredienti') && !desc.includes('istruzioni')) {
-              baseDescription = analysis.description;
-            }
-            
-            // Se contiene sia descrizione che ingredienti/istruzioni, estrai la parte descrittiva
-            if (desc.includes('ingredienti') || desc.includes('istruzioni')) {
-              const beforeIngredients = analysis.description.split(/ingredienti|istruzioni/i)[0];
-              if (beforeIngredients && beforeIngredients.trim() && !baseDescription) {
-                baseDescription = beforeIngredients.trim();
-              }
-            }
-            
-            // Estrai ingredienti
-            if (desc.includes('ingredienti') && !hasIngredients) {
-              const ingredientsMatch = analysis.description.match(/ingredienti[:\s]*(.*?)(?=istruzioni|$)/is);
-              if (ingredientsMatch) {
-                if (!combinedAnalysis.description) {
-                  combinedAnalysis.description = baseDescription || '';
-                }
-                combinedAnalysis.description += '\n\nINGREDIENTI:\n' + ingredientsMatch[1].trim();
-                hasIngredients = true;
-              }
-            }
-            
-            // Estrai istruzioni
-            if (desc.includes('istruzioni') && !hasInstructions) {
-              const instructionsMatch = analysis.description.match(/istruzioni[:\s]*(.*?)$/is);
-              if (instructionsMatch) {
-                if (!combinedAnalysis.description) {
-                  combinedAnalysis.description = baseDescription || '';
-                }
-                combinedAnalysis.description += '\n\nISTRUZIONI:\n' + instructionsMatch[1].trim();
-                hasInstructions = true;
-              }
-            }
-            
-            // Se non abbiamo ancora una descrizione, usa questa
-            if (!combinedAnalysis.description) {
-              combinedAnalysis.description = analysis.description;
-            }
-          }
-          
-          if (analysis.category && !combinedAnalysis.category) {
-            combinedAnalysis.category = analysis.category;
-          }
-          
-          if (analysis.tags) {
-            if (combinedAnalysis.tags) {
-              // Unisci i tag senza duplicati
-              const existingTags = new Set(combinedAnalysis.tags);
-              analysis.tags.forEach(tag => existingTags.add(tag));
-              combinedAnalysis.tags = Array.from(existingTags);
-            } else {
-              combinedAnalysis.tags = analysis.tags;
-            }
-          }
-          
-          analysisCount++;
+          return { analysis, index };
         } catch (error) {
-          console.error(`Error analyzing image ${analysisCount + 1}:`, error);
-          // Continua con le altre immagini anche se una fallisce
+          console.error(`Error analyzing image ${index + 1}:`, error);
+          return { analysis: null, index };
         }
-      }
+      });
+
+      // Aspetta che tutte le analisi siano completate
+      const results = await Promise.all(analysisPromises);
+
+      // Processa i risultati
+      results.forEach(({ analysis }) => {
+        if (!analysis) return;
+
+        // Combina le informazioni dalle diverse immagini
+        if (analysis.title && !combinedAnalysis.title) {
+          combinedAnalysis.title = analysis.title;
+        }
+        
+        if (analysis.description) {
+          const desc = analysis.description.toLowerCase();
+          
+          // Estrai la descrizione base (prima di ingredienti/istruzioni)
+          if (!baseDescription && !desc.includes('ingredienti') && !desc.includes('istruzioni')) {
+            baseDescription = analysis.description;
+          }
+          
+          // Se contiene sia descrizione che ingredienti/istruzioni, estrai la parte descrittiva
+          if (desc.includes('ingredienti') || desc.includes('istruzioni')) {
+            const beforeIngredients = analysis.description.split(/ingredienti|istruzioni/i)[0];
+            if (beforeIngredients && beforeIngredients.trim() && !baseDescription) {
+              baseDescription = beforeIngredients.trim();
+            }
+          }
+          
+          // Estrai ingredienti
+          if (desc.includes('ingredienti') && !hasIngredients) {
+            const ingredientsMatch = analysis.description.match(/ingredienti[:\s]*(.*?)(?=istruzioni|$)/is);
+            if (ingredientsMatch) {
+              if (!combinedAnalysis.description) {
+                combinedAnalysis.description = baseDescription || '';
+              }
+              combinedAnalysis.description += '\n\nINGREDIENTI:\n' + ingredientsMatch[1].trim();
+              hasIngredients = true;
+            }
+          }
+          
+          // Estrai istruzioni
+          if (desc.includes('istruzioni') && !hasInstructions) {
+            const instructionsMatch = analysis.description.match(/istruzioni[:\s]*(.*?)$/is);
+            if (instructionsMatch) {
+              if (!combinedAnalysis.description) {
+                combinedAnalysis.description = baseDescription || '';
+              }
+              combinedAnalysis.description += '\n\nISTRUZIONI:\n' + instructionsMatch[1].trim();
+              hasInstructions = true;
+            }
+          }
+          
+          // Se non abbiamo ancora una descrizione, usa questa
+          if (!combinedAnalysis.description) {
+            combinedAnalysis.description = analysis.description;
+          }
+        }
+        
+        if (analysis.category && !combinedAnalysis.category) {
+          combinedAnalysis.category = analysis.category;
+        }
+        
+        if (analysis.tags) {
+          if (combinedAnalysis.tags) {
+            // Unisci i tag senza duplicati
+            const existingTags = new Set(combinedAnalysis.tags);
+            analysis.tags.forEach(tag => existingTags.add(tag));
+            combinedAnalysis.tags = Array.from(existingTags);
+          } else {
+            combinedAnalysis.tags = analysis.tags;
+          }
+        }
+      });
       
       // Assicurati che la descrizione base sia sempre inclusa
       if (baseDescription && !combinedAnalysis.description?.includes(baseDescription)) {
@@ -542,7 +547,7 @@ export function Recipes() {
       
       toast({
         title: 'Analisi completata',
-        description: `Analizzate ${analysisCount} immagini. Informazioni combinate automaticamente.`
+        description: `Analizzate ${results.length} immagini in parallelo. Informazioni combinate automaticamente.`
       });
     } catch (error) {
       console.error('Error analyzing images:', error);
@@ -553,6 +558,7 @@ export function Recipes() {
       });
     } finally {
       setAnalyzingImage(false);
+      setAnalyzingImageIndex(-1);
     }
   };
 
