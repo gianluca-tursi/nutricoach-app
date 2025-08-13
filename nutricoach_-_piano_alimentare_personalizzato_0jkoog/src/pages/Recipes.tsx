@@ -30,6 +30,7 @@ import { useToast } from '@/hooks/use-toast';
     description: string;
     category: string;
     image_url?: string;
+    images?: string[];
     external_link?: string;
     user_id: string;
     created_at: string;
@@ -46,6 +47,8 @@ export function Recipes() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [recipeToDelete, setRecipeToDelete] = useState<Recipe | null>(null);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [newRecipe, setNewRecipe] = useState<Partial<Recipe>>({
@@ -57,8 +60,9 @@ export function Recipes() {
   });
   const [uploadingImage, setUploadingImage] = useState(false);
   const [analyzingImage, setAnalyzingImage] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [analyzingImageIndex, setAnalyzingImageIndex] = useState<number>(-1);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const categories = [
@@ -122,10 +126,10 @@ export function Recipes() {
         return;
       }
 
-      setSelectedImage(file);
+      setSelectedImages(prev => [...prev, file]);
       const reader = new FileReader();
       reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
+        setImagePreviews(prev => [...prev, e.target?.result as string]);
       };
       reader.readAsDataURL(file);
     }
@@ -286,17 +290,25 @@ export function Recipes() {
 
     setUploadingImage(true);
     try {
-      let imageUrl = '';
+      let imageUrls: string[] = [];
       
-      if (selectedImage) {
-        imageUrl = await uploadImage(selectedImage);
+      if (selectedImages.length > 0) {
+        // Carica tutte le immagini
+        for (const image of selectedImages) {
+          const imageUrl = await uploadImage(image);
+          imageUrls.push(imageUrl);
+        }
       }
 
       const recipeData = {
         ...newRecipe,
         user_id: user.id,
-        image_url: imageUrl || newRecipe.image_url || null
+        image_url: imageUrls[0] || newRecipe.image_url || null
       };
+
+      // Per ora salviamo solo l'immagine principale
+      // Il supporto completo per multiple immagini sarà disponibile dopo la migrazione del database
+      console.log('Immagini caricate:', imageUrls);
 
       if (isEditing && selectedRecipe) {
         // Modifica ricetta esistente
@@ -362,12 +374,19 @@ export function Recipes() {
     }
   };
 
-  const deleteRecipe = async (id: string) => {
+  const confirmDelete = (recipe: Recipe) => {
+    setRecipeToDelete(recipe);
+    setShowDeleteDialog(true);
+  };
+
+  const deleteRecipe = async () => {
+    if (!recipeToDelete) return;
+    
     try {
       const { error } = await supabase
         .from('recipes')
         .delete()
-        .eq('id', id);
+        .eq('id', recipeToDelete.id);
 
       if (error) {
         console.error('Error deleting recipe:', error);
@@ -377,7 +396,7 @@ export function Recipes() {
           variant: 'destructive'
         });
       } else {
-        setRecipes(recipes.filter(recipe => recipe.id !== id));
+        setRecipes(recipes.filter(recipe => recipe.id !== recipeToDelete.id));
         toast({
           title: 'Successo',
           description: 'Ricetta eliminata con successo'
@@ -390,6 +409,9 @@ export function Recipes() {
         description: 'Impossibile eliminare la ricetta',
         variant: 'destructive'
       });
+    } finally {
+      setShowDeleteDialog(false);
+      setRecipeToDelete(null);
     }
   };
 
@@ -401,8 +423,9 @@ export function Recipes() {
       tags: [],
       has_recipe_text: false
     });
-    setSelectedImage(null);
-    setImagePreview('');
+    setSelectedImages([]);
+    setImagePreviews([]);
+    setAnalyzingImageIndex(-1);
     setIsEditing(false);
     setSelectedRecipe(null);
     if (fileInputRef.current) {
@@ -411,30 +434,72 @@ export function Recipes() {
   };
 
   const handleAnalyzeImage = async () => {
-    if (!selectedImage) return;
+    if (selectedImages.length === 0) return;
 
     setAnalyzingImage(true);
     try {
-      // Prima carica l'immagine per ottenere l'URL
-      const imageUrl = await uploadImage(selectedImage);
-      
-      // Poi analizza con AI
-      const analysis = await analyzeImageWithAI(imageUrl);
+      let combinedAnalysis: Partial<Recipe> = {};
+      let analysisCount = 0;
+
+      // Analizza tutte le immagini e combina i risultati
+      for (let i = 0; i < selectedImages.length; i++) {
+        const image = selectedImages[i];
+        setAnalyzingImageIndex(i);
+        
+        try {
+          const imageUrl = await uploadImage(image);
+          const analysis = await analyzeImageWithAI(imageUrl);
+          
+          // Combina le informazioni dalle diverse immagini
+          if (analysis.title && !combinedAnalysis.title) {
+            combinedAnalysis.title = analysis.title;
+          }
+          
+          if (analysis.description) {
+            if (combinedAnalysis.description) {
+              // Aggiungi la nuova descrizione con un separatore
+              combinedAnalysis.description += '\n\n' + analysis.description;
+            } else {
+              combinedAnalysis.description = analysis.description;
+            }
+          }
+          
+          if (analysis.category && !combinedAnalysis.category) {
+            combinedAnalysis.category = analysis.category;
+          }
+          
+          if (analysis.tags) {
+            if (combinedAnalysis.tags) {
+              // Unisci i tag senza duplicati
+              const existingTags = new Set(combinedAnalysis.tags);
+              analysis.tags.forEach(tag => existingTags.add(tag));
+              combinedAnalysis.tags = Array.from(existingTags);
+            } else {
+              combinedAnalysis.tags = analysis.tags;
+            }
+          }
+          
+          analysisCount++;
+        } catch (error) {
+          console.error(`Error analyzing image ${analysisCount + 1}:`, error);
+          // Continua con le altre immagini anche se una fallisce
+        }
+      }
       
       setNewRecipe(prev => ({
         ...prev,
-        ...analysis
+        ...combinedAnalysis
       }));
       
       toast({
         title: 'Analisi completata',
-        description: 'I campi sono stati compilati automaticamente'
+        description: `Analizzate ${analysisCount} immagini. Informazioni combinate automaticamente.`
       });
     } catch (error) {
-      console.error('Error analyzing image:', error);
+      console.error('Error analyzing images:', error);
       toast({
         title: 'Errore',
-        description: 'Impossibile analizzare l\'immagine',
+        description: 'Impossibile analizzare le immagini',
         variant: 'destructive'
       });
     } finally {
@@ -461,21 +526,34 @@ export function Recipes() {
   // Componente per visualizzare una ricetta
   const RecipeView = ({ recipe }: { recipe: Recipe }) => (
     <div className="space-y-6">
-      {/* Immagine */}
-      {recipe.image_url && (
+      {/* Immagini */}
+      {(recipe.images && recipe.images.length > 0) || recipe.image_url ? (
         <div className="relative">
-          <img 
-            src={recipe.image_url} 
-            alt={recipe.title}
-            className="w-full h-64 object-cover rounded-lg"
-          />
+          {recipe.images && recipe.images.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2">
+              {recipe.images.map((image, index) => (
+                <img 
+                  key={index}
+                  src={image} 
+                  alt={`${recipe.title} - ${index + 1}`}
+                  className="w-full h-48 object-cover rounded-lg"
+                />
+              ))}
+            </div>
+          ) : (
+            <img 
+              src={recipe.image_url} 
+              alt={recipe.title}
+              className="w-full h-64 object-cover rounded-lg"
+            />
+          )}
           <div className="absolute top-2 right-2">
             <Badge variant="secondary" className="bg-black/70 text-white">
               {getCategoryLabel(recipe.category)}
             </Badge>
           </div>
         </div>
-      )}
+      ) : null}
 
       {/* Titolo e descrizione */}
       <div>
@@ -573,17 +651,44 @@ export function Recipes() {
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={handleImageSelect}
                     className="hidden"
                   />
                   
-                  {imagePreview ? (
+                  {imagePreviews.length > 0 ? (
                     <div className="space-y-4">
-                      <img 
-                        src={imagePreview} 
-                        alt="Preview" 
-                        className="max-w-full h-48 object-cover rounded-lg mx-auto"
-                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        {imagePreviews.map((preview, index) => (
+                          <div key={index} className="relative">
+                            <img 
+                              src={preview} 
+                              alt={`Preview ${index + 1}`} 
+                              className={`w-full h-32 object-cover rounded-lg ${
+                                analyzingImageIndex === index ? 'ring-2 ring-blue-500' : ''
+                              }`}
+                            />
+                            {analyzingImageIndex === index && (
+                              <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                                <div className="bg-blue-600 text-white px-2 py-1 rounded text-xs">
+                                  Analizzando...
+                                </div>
+                              </div>
+                            )}
+                            <Button
+                              onClick={() => {
+                                setSelectedImages(prev => prev.filter((_, i) => i !== index));
+                                setImagePreviews(prev => prev.filter((_, i) => i !== index));
+                              }}
+                              variant="ghost"
+                              size="sm"
+                              className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white"
+                            >
+                              ×
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                       <div className="flex gap-2 justify-center">
                         <Button
                           onClick={() => fileInputRef.current?.click()}
@@ -591,7 +696,7 @@ export function Recipes() {
                           size="sm"
                         >
                           <Upload className="h-4 w-4 mr-2" />
-                          Cambia Foto
+                          Aggiungi Foto
                         </Button>
                         <Button
                           onClick={handleAnalyzeImage}
@@ -779,7 +884,7 @@ export function Recipes() {
                             <Eye className="h-4 w-4" />
                           </Button>
                           <Button
-                            onClick={() => deleteRecipe(recipe.id)}
+                            onClick={() => confirmDelete(recipe)}
                             variant="ghost"
                             size="sm"
                             className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
@@ -790,15 +895,33 @@ export function Recipes() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      {recipe.image_url && (
+                      {(recipe.images && recipe.images.length > 0) || recipe.image_url ? (
                         <div className="mb-4">
-                          <img
-                            src={recipe.image_url}
-                            alt={recipe.title}
-                            className="w-full h-32 object-cover rounded-lg"
-                          />
+                          {recipe.images && recipe.images.length > 0 ? (
+                            <div className="grid grid-cols-2 gap-1 relative">
+                              {recipe.images.slice(0, 4).map((image, index) => (
+                                <img
+                                  key={index}
+                                  src={image}
+                                  alt={`${recipe.title} - ${index + 1}`}
+                                  className="w-full h-16 object-cover rounded-lg"
+                                />
+                              ))}
+                              {recipe.images.length > 4 && (
+                                <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                                  +{recipe.images.length - 4}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <img
+                              src={recipe.image_url}
+                              alt={recipe.title}
+                              className="w-full h-32 object-cover rounded-lg"
+                            />
+                          )}
                         </div>
-                      )}
+                      ) : null}
                       {recipe.external_link && (
                         <a
                           href={recipe.external_link}
@@ -833,9 +956,11 @@ export function Recipes() {
                     setIsEditing(true);
                     setShowViewDialog(false);
                     setShowAddDialog(true);
-                    // Imposta la preview dell'immagine esistente
-                    if (selectedRecipe.image_url) {
-                      setImagePreview(selectedRecipe.image_url);
+                    // Imposta la preview delle immagini esistenti
+                    if (selectedRecipe.images && selectedRecipe.images.length > 0) {
+                      setImagePreviews(selectedRecipe.images);
+                    } else if (selectedRecipe.image_url) {
+                      setImagePreviews([selectedRecipe.image_url]);
                     }
                   }
                 }}
@@ -849,6 +974,33 @@ export function Recipes() {
                 variant="outline"
               >
                 Chiudi
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog di conferma cancellazione */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent className="bg-gray-900 border-gray-700 text-white">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Conferma Cancellazione</DialogTitle>
+              <DialogDescription className="text-gray-300">
+                Sei sicuro di voler eliminare la ricetta "{recipeToDelete?.title}"? Questa azione non può essere annullata.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                onClick={() => setShowDeleteDialog(false)}
+                variant="outline"
+              >
+                Annulla
+              </Button>
+              <Button
+                onClick={deleteRecipe}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Elimina
               </Button>
             </div>
           </DialogContent>
