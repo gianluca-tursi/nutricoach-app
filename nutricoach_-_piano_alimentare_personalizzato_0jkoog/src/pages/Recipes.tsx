@@ -47,6 +47,7 @@ export function Recipes() {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showViewDialog, setShowViewDialog] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [newRecipe, setNewRecipe] = useState<Partial<Recipe>>({
     title: '',
     description: '',
@@ -297,27 +298,57 @@ export function Recipes() {
         image_url: imageUrl || null
       };
 
-      const { data, error } = await supabase
-        .from('recipes')
-        .insert([recipeData])
-        .select()
-        .single();
+      if (isEditing && selectedRecipe) {
+        // Modifica ricetta esistente
+        const { data, error } = await supabase
+          .from('recipes')
+          .update(recipeData)
+          .eq('id', selectedRecipe.id)
+          .select()
+          .single();
 
-      if (error) {
-        console.error('Error adding recipe:', error);
-        toast({
-          title: 'Errore',
-          description: 'Impossibile aggiungere la ricetta',
-          variant: 'destructive'
-        });
+        if (error) {
+          console.error('Error updating recipe:', error);
+          toast({
+            title: 'Errore',
+            description: 'Impossibile aggiornare la ricetta',
+            variant: 'destructive'
+          });
+        } else {
+          setRecipes(recipes.map(r => r.id === selectedRecipe.id ? data : r));
+          setShowAddDialog(false);
+          resetForm();
+          setIsEditing(false);
+          setSelectedRecipe(null);
+          toast({
+            title: 'Successo',
+            description: 'Ricetta aggiornata con successo'
+          });
+        }
       } else {
-        setRecipes([data, ...recipes]);
-        setShowAddDialog(false);
-        resetForm();
-        toast({
-          title: 'Successo',
-          description: 'Ricetta aggiunta con successo'
-        });
+        // Aggiungi nuova ricetta
+        const { data, error } = await supabase
+          .from('recipes')
+          .insert([recipeData])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Error adding recipe:', error);
+          toast({
+            title: 'Errore',
+            description: 'Impossibile aggiungere la ricetta',
+            variant: 'destructive'
+          });
+        } else {
+          setRecipes([data, ...recipes]);
+          setShowAddDialog(false);
+          resetForm();
+          toast({
+            title: 'Successo',
+            description: 'Ricetta aggiunta con successo'
+          });
+        }
       }
     } catch (error) {
       console.error('Error adding recipe:', error);
@@ -372,6 +403,8 @@ export function Recipes() {
     });
     setSelectedImage(null);
     setImagePreview('');
+    setIsEditing(false);
+    setSelectedRecipe(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -527,9 +560,9 @@ export function Recipes() {
             </DialogTrigger>
             <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Nuova Ricetta</DialogTitle>
+                <DialogTitle>{isEditing ? 'Modifica Ricetta' : 'Nuova Ricetta'}</DialogTitle>
                 <DialogDescription>
-                  Aggiungi una nuova ricetta. Puoi caricare una foto per analisi automatica.
+                  {isEditing ? 'Modifica i dettagli della ricetta' : 'Aggiungi una nuova ricetta. Puoi caricare una foto per analisi automatica.'}
                 </DialogDescription>
               </DialogHeader>
               
@@ -650,7 +683,7 @@ export function Recipes() {
                     ) : (
                       <Plus className="h-4 w-4 mr-2" />
                     )}
-                    {uploadingImage ? 'Salvando...' : 'Salva Ricetta'}
+                    {uploadingImage ? 'Salvando...' : (isEditing ? 'Aggiorna Ricetta' : 'Salva Ricetta')}
                   </Button>
                   <Button
                     onClick={() => setShowAddDialog(false)}
@@ -721,7 +754,8 @@ export function Recipes() {
                         <div className="flex-1">
                           <CardTitle className="text-lg mb-2">{recipe.title}</CardTitle>
                           <CardDescription className="text-gray-400 mb-3">
-                            {recipe.description}
+                            {recipe.description.split('\n').slice(0, 2).join('\n')}
+                            {recipe.description.split('\n').length > 2 && '...'}
                           </CardDescription>
                           <div className="flex flex-wrap gap-2">
                             <Badge variant="secondary" className="bg-blue-600">
@@ -791,7 +825,21 @@ export function Recipes() {
               <DialogTitle className="text-xl">Dettagli Ricetta</DialogTitle>
             </DialogHeader>
             {selectedRecipe && <RecipeView recipe={selectedRecipe} />}
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-between pt-4">
+              <Button
+                onClick={() => {
+                  if (selectedRecipe) {
+                    setNewRecipe(selectedRecipe);
+                    setIsEditing(true);
+                    setShowViewDialog(false);
+                    setShowAddDialog(true);
+                  }
+                }}
+                className="bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Modifica Ricetta
+              </Button>
               <Button
                 onClick={() => setShowViewDialog(false)}
                 variant="outline"
