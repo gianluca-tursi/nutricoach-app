@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#000000" />
+    <title>Lumari - Piano Alimentare Personalizzato</title>
+    
+    <!-- Performance optimizations -->
+    <meta name="description" content="Lumari - Il tuo assistente personale per un piano alimentare su misura" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- DNS prefetch for Supabase -->
+    <link rel="dns-prefetch" href="https://supabase.co" />
+    <link rel="dns-prefetch" href="https://api.openai.com" />
+    
+    <!-- Critical CSS inline -->
+    <style>
+      /* Critical CSS for initial render */
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #000; color: #fff; }
+      .loading-spinner { width: 40px; height: 40px; border: 4px solid #333; border-top: 4px solid #22c55e; border-radius: 50%; animation: spin 1s linear infinite; }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      #root { min-height: 100vh; }
+    </style>
+    
+    <!-- Service Worker registration - TEMPORARILY DISABLED -->
+    <!--
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('SW registered:', registration);
+            })
+            .catch((registrationError) => {
+              console.log('SW registration failed:', registrationError);
+            });
+        });
+      }
+    </script>
+    -->
+    
+    <!-- Auto-redirect to app -->
+    <script>
+      // Reindirizza automaticamente all'app se non siamo già su una rotta specifica
+      if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+        window.location.href = '/app';
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <!-- Initial loading state -->
+      <div style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background: #000;">
+        <div style="text-align: center;">
+          <div class="loading-spinner" style="margin: 0 auto 1rem;"></div>
+          <p style="color: #fff; margin: 0;">Caricamento Lumari...</p>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

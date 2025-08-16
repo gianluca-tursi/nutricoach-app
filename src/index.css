@@ -1,0 +1,468 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Performance optimizations */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #000;
+  color: #fff;
+  overflow-x: hidden;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Reduced quality for slow connections */
+.reduced-quality img {
+  filter: blur(0.5px);
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+.reduced-quality video {
+  filter: blur(0.5px);
+}
+
+/* Optimized loading states */
+.loading-skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Optimized animations with GPU acceleration */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* Mobile optimizations */
+.mobile-optimized {
+  /* Riduce la complessità delle animazioni su mobile */
+  transition-duration: 250ms !important;
+  animation-duration: 250ms !important;
+}
+
+.low-end-mobile {
+  /* Ottimizzazioni per dispositivi a bassa performance */
+  transition-duration: 200ms !important;
+  animation-duration: 200ms !important;
+  will-change: auto !important;
+  transform-style: flat !important;
+  filter: none !important;
+}
+
+/* Disabilita animazioni complesse su dispositivi lenti */
+.low-end-mobile .animate-morph,
+.low-end-mobile .animate-pulse,
+.low-end-mobile .animate-bounce {
+  animation: none !important;
+}
+
+/* Ottimizza le transizioni su mobile */
+@media (max-width: 768px) {
+  .glass-dark {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  
+  /* Riduce la complessità dei gradienti su mobile */
+  .mesh-gradient {
+    background: linear-gradient(45deg, #000000, #1a1a1a);
+  }
+  
+  /* Ottimizza le animazioni di morphing */
+  .animate-morph {
+    animation-duration: 8s;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale3d(0.95, 0.95, 1);
+    opacity: 0;
+  }
+  to {
+    transform: scale3d(1, 1, 1);
+    opacity: 1;
+  }
+}
+
+@keyframes morph {
+  0%, 100% {
+    border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
+  }
+  50% {
+    border-radius: 30% 60% 70% 40% / 50% 60% 30% 60%;
+  }
+}
+
+.animate-morph {
+  animation: morph 8s ease-in-out infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Performance optimized transitions with GPU acceleration */
+.optimized-transition {
+  transition: all 0.2s ease-out;
+  will-change: transform, opacity;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.optimized-transition-fast {
+  transition: all 0.1s ease-out;
+  will-change: transform, opacity;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Optimized hover effects */
+.hover-lift {
+  transition: transform 0.2s ease-out;
+  will-change: transform;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+}
+
+.hover-lift:hover {
+  transform: translate3d(0, -2px, 0);
+}
+
+/* Smooth scrolling optimization */
+.smooth-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Animation performance classes */
+.gpu-accelerated {
+  transform: translate3d(0, 0, 0);
+  will-change: transform, opacity;
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+.animation-layer {
+  position: relative;
+  z-index: 1;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Optimized focus states */
+.focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.2s ease;
+}
+
+.focus-ring:focus {
+  outline-color: #22c55e;
+}
+
+/* Optimized scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Optimized selection */
+::selection {
+  background-color: #22c55e;
+  color: #000;
+}
+
+/* Optimized text rendering */
+.text-optimized {
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern" 1;
+  font-kerning: normal;
+}
+
+/* Optimized images */
+img {
+  max-width: 100%;
+  height: auto;
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+}
+
+/* Optimized buttons */
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Optimized inputs */
+input, textarea, select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* Optimized links */
+a {
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: none;
+}
+
+/* Optimized lists */
+ul, ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Optimized tables */
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+/* Optimized forms */
+form {
+  margin: 0;
+}
+
+/* Optimized fieldset */
+fieldset {
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* Optimized legend */
+legend {
+  padding: 0;
+}
+
+/* Optimized details */
+details {
+  display: block;
+}
+
+/* Optimized summary */
+summary {
+  display: list-item;
+  cursor: pointer;
+}
+
+/* Optimized template */
+template {
+  display: none;
+}
+
+/* Optimized hidden */
+[hidden] {
+  display: none !important;
+}
+
+/* Optimized screen reader only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Optimized print styles */
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a, a:visited {
+    text-decoration: underline;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+  
+  abbr[title]:after {
+    content: " (" attr(title) ")";
+  }
+  
+  pre, blockquote {
+    border: 1px solid #999;
+    page-break-inside: avoid;
+  }
+  
+  thead {
+    display: table-header-group;
+  }
+  
+  tr, img {
+    page-break-inside: avoid;
+  }
+  
+  img {
+    max-width: 100% !important;
+  }
+  
+  p, h2, h3 {
+    orphans: 3;
+    widows: 3;
+  }
+  
+  h2, h3 {
+    page-break-after: avoid;
+  }
+}
+
+/* Glassmorphism styles for onboarding */
+.glass-dark {
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.glass-input {
+  background: rgba(31, 41, 55, 0.8);
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  color: white;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+}
+
+.glass-input:focus {
+  border-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.glass-dropdown {
+  background: rgba(31, 41, 55, 0.95);
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  backdrop-filter: blur(20px);
+}
+
+.glass-card {
+  background: rgba(31, 41, 55, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.glass-checkbox {
+  background: rgba(31, 41, 55, 0.8);
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  backdrop-filter: blur(10px);
+}
+
+.glass-button {
+  background: rgba(31, 41, 55, 0.8);
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  color: white;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+}
+
+.glass-button:hover {
+  background: rgba(55, 65, 81, 0.8);
+  border-color: rgba(107, 114, 128, 0.5);
+}
+
+.glass-button-primary {
+  background: linear-gradient(135deg, #22c55e, #3b82f6);
+  color: white;
+  border: none;
+  backdrop-filter: blur(10px);
+  transition: all 0.2s ease;
+}
+
+.glass-button-primary:hover {
+  background: linear-gradient(135deg, #16a34a, #2563eb);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+}
+
+.glass-button-primary:disabled {
+  background: rgba(75, 85, 99, 0.5);
+  transform: none;
+  box-shadow: none;
+  cursor: not-allowed;
+}

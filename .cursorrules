@@ -1,0 +1,29 @@
+# ==== COMPORTAMENTO GENERALE ====
+- NON eseguire deploy, build di produzione o comandi remoti (Netlify/GitHub) senza una mia richiesta esplicita.
+- Prima di proporre comandi che includono: ["deploy", "netlify", "git push", "vercel", "ssh", "rsync", "gh workflow run"]
+  mostra il comando in un blocco di codice e CHIEDI conferma. Esegui SOLO dopo "OK DEPLOY".
+- NON modificare design, layout, palette, tipografia o design token salvo richiesta esplicita ("OK DESIGN").
+- Mantieni i percorsi degli asset **relativi** (./assets/**). NON introdurre path assoluti /assets/ in produzione.
+- NON includere `dev-stubs.js` in build di produzione.
+
+# ==== SICUREZZA ====
+- Mai committare credenziali o segreti. Usa solo variabili d’ambiente.
+- Non installare librerie senza spiegare il motivo e l’impatto sicurezza/performance.
+- Aggiornare dipendenze solo con changelog e PR dedicata; evitare major senza consenso.
+- Sanitizza input dei form, valida lato client e lato server; nessun inline JS per dati utente.
+
+# ==== QUALITÀ CODICE ====
+- Segui standard: Prettier + ESLint/Stylelint; nessun warning nel build.
+- Prima di aprire PR: nessun errore in console, Lighthouse mobile ≥ 85 (Performance/Best Practices/SEO/Accessibility).
+- JS difensivo: verifica esistenza dei selettori prima di inizializzare plugin (es. if ($el.length && $.fn.slick) {...}).
+- Mantieni semantica e accessibilità: ruoli ARIA, focus state, contrasto ≥ 4.5:1, immagini con alt.
+
+# ==== SCOPE MODIFICHE ====
+- Limita le modifiche a /landing/** e file HTML/CSS/JS associati, salvo mia richiesta.
+- Per nuove landing: duplica template, sostituisci SOLO i token {{HEADLINE}}, {{SUBHEAD}}, {{PRICE_TABLE}}, {{FAQ}}, {{CTA_TEXT}}.
+- Non toccare routing/redirect/headers/CSP senza richiesta.
+
+# ==== GIT / PR ====
+- Mai committare su main. Usa branch: feat/<slug>, fix/<slug>, chore/<slug>.
+- Ogni PR deve includere: cosa cambia, perché, impatto (SEO, accessibilità, performance), e screenshot prima/dopo.
+SEO: title e meta description per ogni landing; rel=canonical se contenuti simili; niente noindex in prod.
