@@ -20,7 +20,7 @@ import {
   ChevronRight,
   Archive
 } from 'lucide-react';
-import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
+import { format, subDays, startOfWeek, endOfWeek, eachDayOfInterval, parseISO, isToday, isYesterday } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -62,11 +62,16 @@ export function Progress() {
 
   useEffect(() => {
     if (user) {
-      loadProgressData();
+      const abortController = new AbortController();
+      loadProgressData(abortController.signal);
+      
+      return () => {
+        abortController.abort();
+      };
     }
   }, [user, selectedPeriod]);
 
-  const loadProgressData = async () => {
+  const loadProgressData = async (signal?: AbortSignal) => {
     if (!user) return;
     
     setLoading(true);
@@ -97,6 +102,8 @@ export function Progress() {
           .lte('created_at', endDate.toISOString())
           .order('created_at', { ascending: true });
 
+        if (signal?.aborted) return;
+
         if (weightError) {
           console.warn('Error loading weight data:', weightError);
           setWeightHistory([]);
@@ -107,6 +114,7 @@ export function Progress() {
           })));
         }
       } catch (weightError) {
+        if (signal?.aborted) return;
         console.warn('Error with weight logs query:', weightError);
         setWeightHistory([]);
       }
@@ -121,6 +129,8 @@ export function Progress() {
           .lte('date', endDate.toISOString().split('T')[0])
           .order('date', { ascending: true });
 
+        if (signal?.aborted) return;
+
         if (goalsError) {
           console.warn('Error loading nutrition data:', goalsError);
           setNutritionHistory([]);
@@ -134,16 +144,96 @@ export function Progress() {
           })));
         }
       } catch (nutritionError) {
+        if (signal?.aborted) return;
         console.warn('Error with daily_goals query:', nutritionError);
         setNutritionHistory([]);
       }
     } catch (error) {
+      if (signal?.aborted) return;
       console.error('Error loading progress data:', error);
       setWeightHistory([]);
       setNutritionHistory([]);
     } finally {
-      setLoading(false);
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
     }
+  };
+
+  const calculateStreak = (): number => {
+    if (!nutritionHistory.length) return 0;
+    
+    // Parse entry dates into consistent date-only format
+    const entryDates = new Set<string>();
+    nutritionHistory.forEach(entry => {
+      // Convert dd/MM format back to ISO date string for consistent parsing
+      const [day, month] = entry.date.split('/');
+      const year = new Date().getFullYear();
+      const dateStr = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      entryDates.add(dateStr);
+    });
+    
+    // Walk backwards from today counting consecutive days
+    let streak = 0;
+    let currentDate = new Date();
+    
+    while (true) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      
+      if (entryDates.has(dateStr)) {
+        streak++;
+        currentDate = subDays(currentDate, 1);
+      } else {
+        break;
+      }
+    }
+    
+    return streak;
+  };
+
+  const calculateGoalProgress = (): number => {
+    if (!profile || !nutritionHistory.length) return 0;
+    
+    // Calculate progress based on goal type and current metrics
+    let progress = 0;
+    
+    switch (profile.goal) {
+      case 'lose':
+        // Progress based on weight loss vs target
+        if (weightHistory.length >= 2) {
+          const initialWeight = weightHistory[0].weight;
+          const currentWeight = weightHistory[weightHistory.length - 1].weight;
+          const weightLost = initialWeight - currentWeight;
+          const targetWeightLoss = profile.target_weight ? initialWeight - profile.target_weight : 5; // Default 5kg
+          progress = Math.min((weightLost / targetWeightLoss) * 100, 100);
+        }
+        break;
+        
+      case 'gain':
+        // Progress based on weight gain vs target
+        if (weightHistory.length >= 2) {
+          const initialWeight = weightHistory[0].weight;
+          const currentWeight = weightHistory[weightHistory.length - 1].weight;
+          const weightGained = currentWeight - initialWeight;
+          const targetWeightGain = profile.target_weight ? profile.target_weight - initialWeight : 5; // Default 5kg
+          progress = Math.min((weightGained / targetWeightGain) * 100, 100);
+        }
+        break;
+        
+      case 'maintain':
+      default:
+        // Progress based on consistency in meeting daily calorie goals
+        const daysWithData = nutritionHistory.length;
+        const daysMeetingGoal = nutritionHistory.filter(entry => {
+          const targetCalories = profile.daily_calories || 2000;
+          return Math.abs(entry.calories - targetCalories) <= 200; // Within 200 calories
+        }).length;
+        progress = daysWithData > 0 ? (daysMeetingGoal / daysWithData) * 100 : 0;
+        break;
+    }
+    
+    // Clamp to [0, 100] range
+    return Math.max(0, Math.min(100, progress));
   };
 
   const calculateWeightChange = () => {
@@ -166,6 +256,8 @@ export function Progress() {
 
   const weightChange = calculateWeightChange();
   const avgCalories = calculateAverageCalories();
+  const streak = calculateStreak();
+  const goalProgress = calculateGoalProgress();
 
   if (!profile) {
     return (
@@ -307,7 +399,7 @@ export function Progress() {
                  profile.goal === 'gain' ? 'Aumentare massa' :
                  'Salute'}
               </div>
-              <ProgressBar value={65} className="h-2 bg-gray-700" />
+              <ProgressBar value={goalProgress} className="h-2 bg-gray-700" />
             </div>
           </div>
         </motion.div>
@@ -325,7 +417,7 @@ export function Progress() {
                 <h3 className="text-sm font-medium text-gray-300">Streak</h3>
                 <Award className="h-5 w-5 text-purple-400" />
               </div>
-              <div className="text-3xl font-bold text-white mb-2">7</div>
+              <div className="text-3xl font-bold text-white mb-2">{streak}</div>
               <p className="text-sm text-gray-400">giorni consecutivi</p>
             </div>
           </div>

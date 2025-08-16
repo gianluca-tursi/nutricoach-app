@@ -96,6 +96,7 @@ export function Onboarding() {
   const [showAppBenefits, setShowAppBenefits] = useState(false);
   const [nutritionPlan, setNutritionPlan] = useState<NutritionPlan | null>(null);
   const [isProfileLoaded, setIsProfileLoaded] = useState(false);
+  const [hasSharedWhatsApp, setHasSharedWhatsApp] = useState(false);
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -863,10 +864,10 @@ export function Onboarding() {
             <div className="text-center space-y-4">
               <div className="glass-dark rounded-2xl p-6">
                 <h4 className="text-lg font-semibold text-white mb-3">
-                  Invita i tuoi amici via WhatsApp
+                  Invita almeno 3 amici su WhatsApp
                 </h4>
                 <p className="text-gray-300 mb-4">
-                  Condividi la tua esperienza e aiuta i tuoi amici a iniziare il loro percorso verso una vita più sana
+                  Condividi questa App e aiuta i tuoi amici a iniziare il loro percorso verso una vita più sana
                 </p>
                 
                 <Button
@@ -874,19 +875,50 @@ export function Onboarding() {
                     const message = encodeURIComponent("Ehilà! Sto usando questa app per il nutrimento, provala e dimmi che ne pensi...\n\nLink app: https://lumariai.netlify.app/");
                     const whatsappUrl = `https://wa.me/?text=${message}`;
                     window.open(whatsappUrl, '_blank');
+                    setHasSharedWhatsApp(true);
                   }}
-                  className="bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700 w-full"
+                  className={`w-full ${
+                    hasSharedWhatsApp 
+                      ? 'bg-gradient-to-r from-green-600 to-green-700 text-white' 
+                      : 'bg-gradient-to-r from-green-500 to-green-600 text-white hover:from-green-600 hover:to-green-700'
+                  }`}
                   size="lg"
                 >
                   <MessageCircle className="h-5 w-5 mr-2" />
-                  Condividi su WhatsApp
+                  {hasSharedWhatsApp ? 'Condivisione Completata ✓' : 'Condividi su WhatsApp'}
                 </Button>
               </div>
               
               <p className="text-sm text-gray-400">
                 <MessageCircle className="inline h-4 w-4 mr-1" />
-                Si aprirà WhatsApp con un messaggio predefinito
+                {hasSharedWhatsApp 
+                  ? 'Perfetto! Ora puoi procedere con l\'app' 
+                  : 'Dopo aver condiviso con i tuoi amici potrai usare l\'app'
+                }
               </p>
+              
+              {hasSharedWhatsApp && (
+                <div className="mt-6">
+                  <Button
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 w-full"
+                    size="lg"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2" />
+                        Salvataggio...
+                      </>
+                    ) : (
+                      <>
+                        <ArrowRight className="h-5 w-5 mr-2" />
+                        Completa il Profilo
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -917,7 +949,7 @@ export function Onboarding() {
       case 9:
         return true;
       case 10:
-        return true;
+        return hasSharedWhatsApp;
       default:
         return false;
     }
@@ -995,7 +1027,7 @@ export function Onboarding() {
               </motion.div>
             </AnimatePresence>
             
-            {!showMotivational && !showAppBenefits && (
+            {!showMotivational && !showAppBenefits && step !== 10 && (
               <div className="flex justify-between mt-8">
                 <Button
                   variant="outline"

@@ -20,9 +20,15 @@ import {
   Image as ImageIcon,
   Loader2,
   ExternalLink,
-  Eye
+  Eye,
+  ChefHat,
+  Sparkles,
+  CheckCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { FridgeAnalyzer } from '@/components/FridgeAnalyzer';
+import { RecipeGenerator } from '@/components/RecipeGenerator';
+import { findMatchingRecipes } from '@/lib/recipeMatcher';
 
   interface Recipe {
     id: string;
@@ -65,6 +71,13 @@ export function Recipes() {
   const [analyzingImageIndex, setAnalyzingImageIndex] = useState<number>(-1);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Stati per l'analisi del frigo
+  const [showFridgeAnalyzer, setShowFridgeAnalyzer] = useState(false);
+  const [showRecipeGenerator, setShowRecipeGenerator] = useState(false);
+  const [fridgeData, setFridgeData] = useState<any>(null);
+  const [matchingRecipes, setMatchingRecipes] = useState<any[]>([]);
+  const [showMatchingRecipes, setShowMatchingRecipes] = useState(false);
 
   const categories = [
     { value: 'all', label: 'Tutte' },
@@ -719,6 +732,87 @@ export function Recipes() {
     </div>
   );
 
+  // Funzioni per l'analisi del frigo
+  const handleFridgeAnalysisComplete = async (result: any) => {
+    setFridgeData(result);
+    setShowFridgeAnalyzer(false);
+    
+    try {
+      const matches = await findMatchingRecipes(result, recipes);
+      setMatchingRecipes(matches);
+      
+      if (matches.length > 0) {
+        setShowMatchingRecipes(true);
+        toast({
+          title: 'Successo',
+          description: `Trovate ${matches.length} ricette compatibili!`
+        });
+      } else {
+        setShowRecipeGenerator(true);
+        toast({
+          title: 'Info',
+          description: 'Nessuna ricetta compatibile trovata. Generiamo nuove ricette!'
+        });
+      }
+    } catch (error) {
+      console.error('Errore nel matching delle ricette:', error);
+      toast({
+        title: 'Errore',
+        description: 'Errore nella ricerca delle ricette compatibili',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleRecipeGeneratorClose = () => {
+    setShowRecipeGenerator(false);
+    setFridgeData(null);
+  };
+
+  const handleSaveGeneratedRecipe = async (generatedRecipe: any) => {
+    if (!user || !supabase) return;
+
+    try {
+      const recipeData = {
+        title: generatedRecipe.title,
+        description: `${generatedRecipe.description}\n\n**INGREDIENTI:**\n${generatedRecipe.ingredients.map((ing: string) => `• ${ing}`).join('\n')}\n\n**ISTRUZIONI:**\n${generatedRecipe.instructions.map((inst: string, index: number) => `${index + 1}. ${inst}`).join('\n')}`,
+        category: generatedRecipe.category,
+        tags: generatedRecipe.tags,
+        ingredients: generatedRecipe.ingredients,
+        user_id: user.id,
+        has_recipe_text: true
+      };
+
+      const { data, error } = await supabase
+        .from('recipes')
+        .insert([recipeData])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving generated recipe:', error);
+        toast({
+          title: 'Errore',
+          description: 'Impossibile salvare la ricetta generata',
+          variant: 'destructive'
+        });
+      } else {
+        setRecipes([data, ...recipes]);
+        toast({
+          title: 'Successo',
+          description: 'Ricetta generata salvata con successo!'
+        });
+      }
+    } catch (error) {
+      console.error('Error saving generated recipe:', error);
+      toast({
+        title: 'Errore',
+        description: 'Impossibile salvare la ricetta generata',
+        variant: 'destructive'
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white p-4">
@@ -741,13 +835,21 @@ export function Recipes() {
             <h1 className="text-3xl font-bold mb-2">Le Mie Ricette</h1>
             <p className="text-gray-400">Gestisci le tue ricette preferite</p>
           </div>
-          <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90">
-                <Plus className="h-4 w-4 mr-2" />
-                Nuova Ricetta
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-3">
+            <Button
+              onClick={() => setShowFridgeAnalyzer(true)}
+              className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:opacity-90"
+            >
+              <ChefHat className="h-4 w-4 mr-2" />
+              Analizza Frigo
+            </Button>
+            <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-to-r from-green-400 to-blue-400 text-black hover:opacity-90">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nuova Ricetta
+                </Button>
+              </DialogTrigger>
             <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{isEditing ? 'Modifica Ricetta' : 'Nuova Ricetta'}</DialogTitle>
@@ -912,6 +1014,7 @@ export function Recipes() {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Search and Filter */}
@@ -1117,6 +1220,159 @@ export function Recipes() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Componenti per l'analisi del frigo */}
+        {showFridgeAnalyzer && (
+          <FridgeAnalyzer
+            onAnalysisComplete={handleFridgeAnalysisComplete}
+            onClose={() => setShowFridgeAnalyzer(false)}
+          />
+        )}
+
+        {showRecipeGenerator && fridgeData && (
+          <RecipeGenerator
+            fridgeData={fridgeData}
+            onClose={handleRecipeGeneratorClose}
+            onSaveRecipe={handleSaveGeneratedRecipe}
+          />
+        )}
+
+        {showMatchingRecipes && matchingRecipes.length > 0 && (
+          <Dialog open={showMatchingRecipes} onOpenChange={setShowMatchingRecipes}>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-900 border-gray-700">
+              <DialogHeader>
+                <DialogTitle className="text-xl flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-green-500" />
+                  Ricette Compatibili con il Tuo Frigo
+                </DialogTitle>
+                <DialogDescription className="text-gray-300">
+                  Trovate {matchingRecipes.length} ricette che puoi preparare con i tuoi ingredienti
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gradient-to-r from-green-500/10 to-blue-500/10 rounded-xl border border-green-500/20">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-white">{matchingRecipes.length}</div>
+                    <div className="text-sm text-gray-400">Ricette compatibili</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-white">{fridgeData.totalItems}</div>
+                    <div className="text-sm text-gray-400">Ingredienti nel frigo</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-white">
+                      {Math.round(matchingRecipes.reduce((sum, match) => sum + match.coveragePercentage, 0) / matchingRecipes.length)}%
+                    </div>
+                    <div className="text-sm text-gray-400">Compatibilità media</div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {matchingRecipes.slice(0, 6).map((match, index) => (
+                    <Card key={index} className="bg-gray-800/50 border-gray-600 hover:border-green-500/50 transition-colors">
+                      <CardHeader>
+                        <div className="flex justify-between items-start mb-2">
+                          <CardTitle className="text-white text-lg">{match.recipe.title}</CardTitle>
+                          <Badge className={`${
+                            match.coveragePercentage >= 80 ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                            match.coveragePercentage >= 60 ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                            'bg-orange-500/20 text-orange-400 border-orange-500/30'
+                          }`}>
+                            {Math.round(match.coveragePercentage)}% compatibile
+                          </Badge>
+                        </div>
+                        <p className="text-gray-400 text-sm">{match.recipe.description.split('\n')[0]}</p>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <h4 className="font-medium text-white mb-2">Ingredienti disponibili ({match.matchedIngredients.length}):</h4>
+                          <div className="flex flex-wrap gap-1">
+                            {match.matchedIngredients.slice(0, 3).map((ingredient: string, idx: number) => (
+                              <Badge key={idx} variant="outline" className="text-xs bg-green-500/20 text-green-400 border-green-500/30">
+                                {ingredient}
+                              </Badge>
+                            ))}
+                            {match.matchedIngredients.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{match.matchedIngredients.length - 3} altri
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {match.missingIngredients.length > 0 && (
+                          <div>
+                            <h4 className="font-medium text-white mb-2">Ingredienti mancanti ({match.missingIngredients.length}):</h4>
+                            <div className="flex flex-wrap gap-1">
+                              {match.missingIngredients.slice(0, 3).map((ingredient: string, idx: number) => (
+                                <Badge key={idx} variant="outline" className="text-xs bg-red-500/20 text-red-400 border-red-500/30">
+                                  {ingredient}
+                                </Badge>
+                              ))}
+                              {match.missingIngredients.length > 3 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{match.missingIngredients.length - 3} altri
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => {
+                              setSelectedRecipe(match.recipe);
+                              setShowMatchingRecipes(false);
+                              setShowViewDialog(true);
+                            }}
+                            variant="outline"
+                            size="sm"
+                            className="flex-1"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Visualizza
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              toast({
+                                title: 'Perfetto!',
+                                description: 'Hai tutti gli ingredienti principali per questa ricetta!'
+                              });
+                            }}
+                            className="flex-1 bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            Posso Fare
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    onClick={() => {
+                      setShowMatchingRecipes(false);
+                      setShowRecipeGenerator(true);
+                    }}
+                    className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Genera Nuove Ricette
+                  </Button>
+                  <Button
+                    onClick={() => setShowMatchingRecipes(false)}
+                    variant="outline"
+                  >
+                    Chiudi
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </div>
   );
