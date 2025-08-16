@@ -33,9 +33,19 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0
 - Performance animazioni su dispositivi mobile
 - Transizioni fluide su dispositivi a bassa performance
 
-## [1.0.0] - 2025-08-12
+## [1.0.0] - 2025-01-15
 
 ### Added
+- 🆕 **Analisi Frigo con AI**: Identifica ingredienti dal frigo tramite foto
+- 🆕 **Generazione Ricette**: Crea ricette personalizzate basate su ingredienti disponibili
+- 🆕 **Matching Intelligente**: Sistema di matching ricette-ingredienti con normalizzazione plurali
+- 🆕 **FridgeAnalyzer Component**: Interfaccia completa per analisi del frigo
+- 🆕 **RecipeGenerator Component**: Generatore di ricette con preferenze utente
+- 🆕 **recipeMatcher Library**: Logica avanzata per matching ingredienti
+- 🆕 **Controllo WhatsApp Quiz**: Verifica condivisione prima di completare onboarding
+- 🆕 **Calcoli Progress Reali**: Streak e goal progress basati su dati reali
+- 🆕 **Debug Completo**: Logging dettagliato per troubleshooting
+- 🆕 **Gestione Errori Robusta**: Fallback per analisi AI e parsing JSON
 - Landing page statica e indipendente
 - Sistema di autenticazione ottimizzato
 - Caricamento profilo migliorato
@@ -49,11 +59,22 @@ e questo progetto aderisce al [Semantic Versioning](https://semver.org/spec/v2.0
 - Performance optimizations
 
 ### Changed
+- 📝 **Testi Quiz Aggiornati**: "Invita almeno 3 amici su WhatsApp"
+- 📝 **Messaggi Dinamici**: Feedback personalizzato dopo condivisione WhatsApp
+- 📝 **UI/UX Migliorata**: Pulsanti dinamici e stati visivi
+- 📝 **Normalizzazione Ingredienti**: Gestione plurali (carciofi → carciofo)
+- 📝 **Ottimizzazioni Mobile**: Rimozione decimali da valori nutrizionali
 - Routing semplificato
 - Gestione stato profilo migliorata
 - Logica profileReady corretta
 
 ### Fixed
+- 🔧 **Matching Ingredienti**: Corretto problema carciofi non riconosciuti
+- 🔧 **Formato Risposta AI**: Gestione errori JSON malformato
+- 🔧 **Posizionamento Modal**: Corretto posizionamento su mobile
+- 🔧 **Checkbox Visual State**: Corretto stato visivo preferenze
+- 🔧 **Progress Bar Reale**: Calcoli basati su dati utente invece di valori hardcoded
+- 🔧 **Streak Calculation**: Calcolo giorni consecutivi reale
 - Errori "user is not defined" nella landing
 - Caricamento infinito dopo refresh
 - Redirect automatici al quiz
